@@ -22,9 +22,11 @@
 #include <QtCore/QObject>
 #include <QtCore/QSharedPointer>
 
+
 #include "typedefs.h"
 #include "dllmacro.h"
 #include "infosystem/infosystem.h"
+#include "TomahawkImage.h"
 
 namespace Tomahawk
 {
@@ -43,7 +45,7 @@ public:
     unsigned int id() const { return m_id; }
     QString name() const { return m_name; }
     QString sortname() const { return m_sortname; }
-    QByteArray cover() const;
+    const TomahawkImage cover() const;
     bool infoLoaded() const { return m_infoLoaded; }
 
     Tomahawk::playlistinterface_ptr playlistInterface();
@@ -63,7 +65,7 @@ private:
     unsigned int m_id;
     QString m_name;
     QString m_sortname;
-    QByteArray m_cover;
+    TomahawkImage m_cover;
     bool m_infoLoaded;
     mutable QString m_uuid;
 

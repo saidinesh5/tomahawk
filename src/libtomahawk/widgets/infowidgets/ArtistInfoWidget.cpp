@@ -289,10 +289,11 @@ ArtistInfoWidget::infoSystemInfo( Tomahawk::InfoSystem::InfoRequestData requestD
 void
 ArtistInfoWidget::onArtistImageUpdated()
 {
-    if ( m_artist->cover().isNull() )
+    QPixmap pixmap = PixmapRegistryGui::instanceGui()->pixmap( m_artist->cover() );
+    if ( pixmap.isNull() )
         return;
 
-    m_pixmap.loadFromData( m_artist->cover() );
+    m_pixmap = pixmap;
     emit pixmapChanged( m_pixmap );
 }
 

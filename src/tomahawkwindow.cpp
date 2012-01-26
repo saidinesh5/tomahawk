@@ -83,6 +83,8 @@ TomahawkWindow::TomahawkWindow( QWidget* parent )
 {
     setWindowIcon( QIcon( RESPATH "icons/tomahawk-icon-128x128.png" ) );
 
+    new PixmapRegistryGui();
+
     ViewManager* vm = new ViewManager( this );
     connect( vm, SIGNAL( showQueueRequested() ), SLOT( showQueue() ) );
     connect( vm, SIGNAL( hideQueueRequested() ), SLOT( hideQueue() ) );

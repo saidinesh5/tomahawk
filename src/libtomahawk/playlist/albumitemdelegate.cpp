@@ -96,7 +96,7 @@ AlbumItemDelegate::paint( QPainter* painter, const QStyleOptionViewItem& option,
     }
     else if ( !item->artist().isNull() )
     {
-        cover.loadFromData( item->artist()->cover() );
+        cover = PixmapRegistryGui::instanceGui()->pixmap( item->artist()->cover() );
     }
 
     if ( cover.isNull() )

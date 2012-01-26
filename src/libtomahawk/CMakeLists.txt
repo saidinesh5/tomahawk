@@ -285,6 +285,7 @@ IF(QCA2_FOUND)
 ENDIF(QCA2_FOUND)
 
 set( libSources
+    TomahawkImage.cpp
     tomahawksettings.cpp
     sourcelist.cpp
     pipeline.cpp

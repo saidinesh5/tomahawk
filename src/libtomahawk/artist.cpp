@@ -89,7 +89,7 @@ Artist::onTracksAdded( const QList<Tomahawk::query_ptr>& tracks )
 }
 
 
-QByteArray
+const TomahawkImage
 Artist::cover() const
 {
     if ( !m_infoLoaded )
