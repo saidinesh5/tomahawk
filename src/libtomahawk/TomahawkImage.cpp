@@ -21,6 +21,7 @@
 
 
 #include <QDebug>
+#include <QThread>
 
 // PIXMAP REGISTRY START //
 PixmapRegistry* PixmapRegistry::s_instance = 0;
@@ -59,25 +60,24 @@ const QPixmap PixmapRegistryGui::pixmap(const TomahawkImage& image)
 {
     QByteArray ba = image.toByteArray();
     if(ba.isNull())
-        return QPixmap();
+        return m_emptyPixmap;
 
     QPixmap pm = m_pixmaps.value(ba);
 
-    if(!pm.isNull())
-        return pm;
-
-    QPixmap pixmap;
-    pixmap.loadFromData( ba );
-    m_pixmaps.insert(ba, pixmap);
-    return pixmap;
+    return pm;
 }
 
 void PixmapRegistryGui::cache(const QByteArray& data)
 {
-    PixmapRegistry::cache(data);
-//     QPixmap pixmap;
-//     pixmap.loadFromData( data );
-//     m_pixmaps.insert(data, pixmap);
+    if ( QThread::currentThread() != thread() )
+    {
+        QMetaObject::invokeMethod( this, "cache", Qt::QueuedConnection, Q_ARG(QByteArray, data) );
+        return;
+    }
+
+    QPixmap pixmap;
+    pixmap.loadFromData( data );
+    m_pixmaps.insert(data, pixmap);
 }
 
 void PixmapRegistryGui::uncache(const QByteArray& data)

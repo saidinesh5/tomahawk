@@ -421,6 +421,7 @@ set( libSources
 
 set( libHeaders
     tomahawksettings.h
+    TomahawkImage.h
     sourcelist.h
     pipeline.h
     functimeout.h

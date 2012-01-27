@@ -25,7 +25,8 @@
 #include <QString>
 #include <QPixmap>
 #include <QHash>
-
+#include <QMap>
+#include <QThread>
 
 #include "dllmacro.h"
 
@@ -46,12 +47,16 @@ private:
     QSharedDataPointer<TomahawkImageData> d;
 };
 
-class DLLEXPORT PixmapRegistry
+class DLLEXPORT PixmapRegistry : public QObject
 {
+Q_OBJECT
+
 public:
     PixmapRegistry();
     virtual ~PixmapRegistry() { };
     static PixmapRegistry* instance();
+
+public slots:
     virtual void cache( const QByteArray& data );
     virtual void uncache( const QByteArray& data );
 
@@ -76,6 +81,7 @@ public:
 
 private:
     QHash< QByteArray, QPixmap > m_pixmaps;
+    QPixmap m_emptyPixmap;
 };
 
 class DLLEXPORT TomahawkImageData : public QSharedData
