@@ -80,7 +80,7 @@ public:
     }
 
 private:
-    QHash< QByteArray, QPixmap > m_pixmaps;
+    QMap< int, QPixmap > m_pixmaps;
     QPixmap m_emptyPixmap;
 };
 

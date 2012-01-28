@@ -62,28 +62,29 @@ const QPixmap PixmapRegistryGui::pixmap(const TomahawkImage& image)
     if(ba.isNull())
         return m_emptyPixmap;
 
-    QPixmap pm = m_pixmaps.value(ba);
+    QPixmap pm = m_pixmaps.value(ba.size());
 
     return pm;
 }
 
-void PixmapRegistryGui::cache(const QByteArray& data)
+void PixmapRegistryGui::cache(const QByteArray& data )
 {
     if ( QThread::currentThread() != thread() )
     {
-        QMetaObject::invokeMethod( this, "cache", Qt::QueuedConnection, Q_ARG(QByteArray, data) );
+        QMetaObject::invokeMethod( this, "cache", Qt::QueuedConnection, Q_ARG(QByteArray, data ) );
         return;
     }
 
     QPixmap pixmap;
     pixmap.loadFromData( data );
-    m_pixmaps.insert(data, pixmap);
+//    qDebug() << Q_FUNC_INFO << data.size();
+    m_pixmaps.insert(data.size(), pixmap);
 }
 
 void PixmapRegistryGui::uncache(const QByteArray& data)
 {
-    PixmapRegistry::uncache(data);
-    m_pixmaps.remove(data);
+    PixmapRegistry::uncache(data );
+    m_pixmaps.remove(data.size());
 }
 
 // PIXMAP REGISTRY GUI END //
@@ -94,7 +95,8 @@ void PixmapRegistryGui::uncache(const QByteArray& data)
 TomahawkImageData::TomahawkImageData(const QByteArray& data)
 {
     m_data = data;
-    PixmapRegistry::instance()->cache(data);
+    QByteArray c = m_data;
+    PixmapRegistry::instance()->cache( data );
 }
 
 TomahawkImageData::TomahawkImageData(const TomahawkImageData &other)
