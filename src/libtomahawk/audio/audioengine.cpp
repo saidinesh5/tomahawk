@@ -65,17 +65,23 @@ AudioEngine::AudioEngine()
 
     m_mediaObject = new Phonon::MediaObject( this );
     m_audioOutput = new Phonon::AudioOutput( Phonon::MusicCategory, this );
+    m_audioDataOutput = new Phonon::AudioDataOutput( this );
+
     Phonon::createPath( m_mediaObject, m_audioOutput );
+    //Phonon::createPath( m_mediaObject, m_audioDataOutput );
 
     m_mediaObject->setTickInterval( 150 );
     connect( m_mediaObject, SIGNAL( stateChanged( Phonon::State, Phonon::State ) ), SLOT( onStateChanged( Phonon::State, Phonon::State ) ) );
     connect( m_mediaObject, SIGNAL( tick( qint64 ) ), SLOT( timerTriggered( qint64 ) ) );
     connect( m_mediaObject, SIGNAL( aboutToFinish() ), SLOT( onAboutToFinish() ) );
 
+    connect( m_audioDataOutput, SIGNAL( dataReady( const QMap<Phonon::AudioDataOutput::Channel, QVector<qint16> >& ) ),this, SIGNAL( audioDataReady( const QMap<Phonon::AudioDataOutput::Channel, QVector<qint16> >& ) ) );
+
     connect( m_audioOutput, SIGNAL( volumeChanged( qreal ) ), SLOT( onVolumeChanged( qreal ) ) );
 
+
     connect( this, SIGNAL( sendWaitingNotification() ), SLOT( sendWaitingNotificationSlot() ), Qt::QueuedConnection );
-    
+
     onVolumeChanged( m_audioOutput->volume() );
 
 #ifndef Q_WS_X11
@@ -92,6 +98,7 @@ AudioEngine::~AudioEngine()
     m_mediaObject->stop();
 //    stop();
 
+    delete m_audioDataOutput;
     delete m_audioOutput;
     delete m_mediaObject;
 }
