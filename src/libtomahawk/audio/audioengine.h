@@ -24,6 +24,7 @@
 
 #include <phonon/MediaObject>
 #include <phonon/AudioOutput>
+#include <phonon/AudioDataOutput>
 #include <phonon/BackendCapabilities>
 
 #include "result.h"
@@ -114,6 +115,7 @@ signals:
 
     void sendWaitingNotification();
 
+    void audioDataReady( const QMap< Phonon::AudioDataOutput::Channel, QVector<qint16> >&  );
 private slots:
     bool loadTrack( const Tomahawk::result_ptr& result );
     void loadPreviousTrack();
@@ -148,6 +150,7 @@ private:
 
     Phonon::MediaObject* m_mediaObject;
     Phonon::AudioOutput* m_audioOutput;
+    Phonon::AudioDataOutput* m_audioDataOutput;
 
     unsigned int m_timeElapsed;
     bool m_expectStop;
