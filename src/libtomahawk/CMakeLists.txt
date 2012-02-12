@@ -151,7 +151,10 @@ IF(QCA2_FOUND)
     set( libGuiSources ${libGuiSources} utils/groovesharkparser.cpp )
 ENDIF(QCA2_FOUND)
 IF(VSXU_FOUND)
-    set(libGuiSources ${libGuiSources} nowplaying/VSXuWidget.cpp nowplaying/nowplayingpage.cpp)
+    set(libGuiSources ${libGuiSources} 
+                      nowplaying/VSXuWidget.cpp 
+                      nowplaying/nowplayingpage.cpp
+                      nowplaying/fftreal/fftreal.cpp)
 ENDIF(VSXU_FOUND)
 
 set( libGuiHeaders
