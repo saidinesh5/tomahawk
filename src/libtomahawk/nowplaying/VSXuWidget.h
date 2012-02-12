@@ -19,7 +19,7 @@ private:
   QStringList m_visuals;
   int m_width,m_height;
   bool m_isActive; // To Save the CPU when we aren't using VSXu.
-  QMap< Phonon::AudioDataOutput::Channel, QVector< qint16 > >     m_audioData;
+  //QMap< Phonon::AudioDataOutput::Channel, QVector< qint16 > >     m_audioData;
 
   void injectSound(float soundData[]);
 
@@ -36,7 +36,7 @@ public:
   ~VSXuWidget();
   
 public slots:
-  void receiveData( const QMap<Phonon::AudioDataOutput::Channel,QVector<qint16> >& data );
+  void receiveAudioData( const QMap< Phonon::AudioDataOutput::Channel, QVector<qint16> >& data );
 };
 
 #endif // VSXuWidget_H

@@ -13,7 +13,6 @@ VSXuWidget::VSXuWidget(QWidget *parent):
   connect (m_timer , SIGNAL(timeout()), this, SLOT(update()));
 
   tDebug()<< "Initializing AudioDataOutput from AudioEngine to VSXu";
-  connect ( AudioEngine::instance(),SIGNAL( audioDataReady( const QMap<Phonon::AudioDataOutput::Channel, QVector<qint16> >& ) ), this, SLOT( receiveData( const QMap<Phonon::AudioDataOutput::Channel, QVector<qint16> >& ) ) );
 
   //TODO: Handle the track changes etc...
 
@@ -37,7 +36,7 @@ void VSXuWidget::injectSound(float soundData[])
   updateGL();
 }
 
-void VSXuWidget::receiveData( const QMap< Phonon::AudioDataOutput::Channel, QVector< qint16 > >& data )
+void VSXuWidget::receiveAudioData( const QMap< Phonon::AudioDataOutput::Channel, QVector< qint16 > >& data )
 {
   tDebug()<< "Received Audio";
 }
@@ -69,6 +68,7 @@ void VSXuWidget::initializeGL()
   if (context()->format().sampleBuffers())
     tDebug()<<"You have Sample Buffers";
   m_timer->start(20);
+  connect ( AudioEngine::instance(),SIGNAL( audioDataReady( const QMap<Phonon::AudioDataOutput::Channel, QVector<qint16> >& ) ), this, SLOT( receiveAudioData( const QMap<Phonon::AudioDataOutput::Channel, QVector<qint16> >& ) ) );
   //TODO  replace the 20 with stuff from http://zrusin.blogspot.in/2008/06/animated-interfaces.html
 }
 
