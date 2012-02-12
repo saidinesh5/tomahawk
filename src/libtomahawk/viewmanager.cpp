@@ -74,6 +74,7 @@ ViewManager::ViewManager( QObject* parent )
     , m_welcomeWidget( new WelcomeWidget() )
     , m_whatsHotWidget( new WhatsHotWidget() )
     , m_topLovedWidget( 0 )
+    , m_nowPlayingWidget( 0 )
     , m_currentMode( PlaylistInterface::Tree )
 {
     s_instance = this;
