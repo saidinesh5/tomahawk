@@ -68,7 +68,7 @@ AudioEngine::AudioEngine()
     m_audioDataOutput = new Phonon::AudioDataOutput( this );
 
     Phonon::createPath( m_mediaObject, m_audioOutput );
-    //Phonon::createPath( m_mediaObject, m_audioDataOutput );
+    Phonon::createPath( m_mediaObject, m_audioDataOutput );
 
     m_mediaObject->setTickInterval( 150 );
     connect( m_mediaObject, SIGNAL( stateChanged( Phonon::State, Phonon::State ) ), SLOT( onStateChanged( Phonon::State, Phonon::State ) ) );
