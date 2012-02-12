@@ -9,6 +9,10 @@
 #include <phonon/path.h>
 #include <vsx_manager.h>
 
+#include "fftreal/fftreal.h"
+
+#define SAMPLES 512
+
 class VSXuWidget : public QGLWidget
 {
   Q_OBJECT
@@ -19,9 +23,11 @@ private:
   QStringList m_visuals;
   int m_width,m_height;
   bool m_isActive; // To Save the CPU when we aren't using VSXu.
-  //QMap< Phonon::AudioDataOutput::Channel, QVector< qint16 > >     m_audioData;
 
-  void injectSound(float soundData[]);
+  //Stuff for AudioData going into VSXuEngine
+  FFTReal m_fftMachine;
+  float m_audioData[SAMPLES];
+  float m_freqData[SAMPLES];
 
 protected:
   void initializeGL();
