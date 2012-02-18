@@ -4,12 +4,15 @@
 #include <QGLWidget>
 #include <QTimer>
 #include <QStringList>
+#include <QResizeEvent>
+#include <QCloseEvent>
+#include <QPaintEvent>
 
 #include <phonon/audiodataoutput.h>
 #include <phonon/path.h>
-#include <vsx_manager.h>
 
 #include "fftreal/fftreal.h"
+#include "nowplaying/vsxurenderer.h"
 
 #define SAMPLES 512
 
@@ -17,25 +20,25 @@ class VSXuWidget : public QGLWidget
 {
   Q_OBJECT
 private:
-  vsx_manager_abs* m_manager;
-  QTimer *m_timer; // A Timer to frequently update the display
 
+  VSXuRenderer *m_vsxu;
   QStringList m_visuals;
-  int m_width,m_height;
-  bool m_isActive; // To Save the CPU when we aren't using VSXu.
+
+  bool m_isActive;
+  // To Save the CPU when we aren't using VSXu.
 
   //Stuff for AudioData going into VSXuEngine
   FFTReal m_fftMachine;
   float m_audioData[SAMPLES];
   float m_freqData[SAMPLES];
 
-protected:
-  void initializeGL();
-  void resizeGL(int w, int h){
-    m_width = w;
-    m_height = h;
-  }
-  void paintGL();
+protected:/*
+  void closeEvent(QCloseEvent *event);*/
+  void resizeEvent(QResizeEvent *event);
+  void paintEvent(QPaintEvent *event){;}
+  //void initializeGL(){};
+  //void resizeGL(int w,int h);
+  //void paintGL(){};
   
 public:
   VSXuWidget(QWidget *parent = NULL);

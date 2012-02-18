@@ -57,7 +57,9 @@ main( int argc, char *argv[] )
     setenv( "QT_X11_NO_NATIVE_MENUBAR", "1", true );
     UbuntuUnityHack hack;
 #endif*/
-
+#ifdef Q_WS_X11
+    QCoreApplication::setAttribute(Qt::AA_X11InitThreads);
+#endif
     TomahawkApp a( argc, argv );
 
 #ifdef ENABLE_HEADLESS
