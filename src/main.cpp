@@ -34,6 +34,9 @@
 #ifndef ENABLE_HEADLESS
     #include "TomahawkSettingsGui.h"
     #include "breakpad/BreakPad.h"
+    #ifdef Q_WS_X11
+    #include <X11/Xlib.h>
+    #endif
 #endif
 
 int
@@ -58,7 +61,7 @@ main( int argc, char *argv[] )
     UbuntuUnityHack hack;
 #endif*/
 #ifdef Q_WS_X11
-    QCoreApplication::setAttribute(Qt::AA_X11InitThreads);
+    XInitThreads();
 #endif
     TomahawkApp a( argc, argv );
 
