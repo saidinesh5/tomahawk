@@ -154,7 +154,8 @@ IF(VSXU_FOUND)
     set(libGuiSources ${libGuiSources} 
                       nowplaying/VSXuWidget.cpp 
                       nowplaying/nowplayingpage.cpp
-                      nowplaying/fftreal/fftreal.cpp)
+                      nowplaying/fftreal/fftreal.cpp
+                      nowplaying/vsxurenderer.cpp)
 ENDIF(VSXU_FOUND)
 
 set( libGuiHeaders
@@ -294,10 +295,13 @@ IF(QCA2_FOUND)
     set( libGuiHeaders ${libGuiHeaders} utils/groovesharkparser.h )
 ENDIF(QCA2_FOUND)
 IF(VSXU_FOUND)
-    set( libGuiHeaders ${libGuiHeaders} nowplaying/VSXuWidget.h nowplaying/nowplayingpage.h)
+    set( libGuiHeaders ${libGuiHeaders} 
+                        nowplaying/VSXuWidget.h
+                        nowplaying/nowplayingpage.h
+                        nowplaying/vsxurenderer.h)
 ENDIF(VSXU_FOUND)
 
-set( libSources
+set( libSources 
     tomahawksettings.cpp
     sourcelist.cpp
     pipeline.cpp
