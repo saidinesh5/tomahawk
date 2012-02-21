@@ -123,6 +123,10 @@ macro_log_feature(QTWEETLIB_FOUND "QTweetLib" "Qt Twitter Library" "https://gith
 macro_optional_find_package(VSXu)
 macro_log_feature(VSXU_FOUND "VSXu" "Vovoid VSXu Ultra" "https://www.vsxu.com" FALSE "" "VSXu is needed for some really cool music visualization.\n")
 
+IF( VSXU_FOUND )
+    find_package(OpenGL)
+ENDIF()
+
 IF( NOT QuaZip_FOUND )
     add_subdirectory( ${CMAKE_SOURCE_DIR}/src/libtomahawk/thirdparty/quazip )
     SET( QuaZip_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/libtomahawk/thirdparty/quazip )
