@@ -1,5 +1,4 @@
 #include "VSXuWidget.h"
-#include <GL/glu.h>
 
 #include "audio/audioengine.h"
 #include "utils/logger.h"
@@ -29,7 +28,7 @@ void VSXuWidget::receiveAudioData( const QMap< Phonon::AudioDataOutput::Channel,
       nSamples = data.value(Phonon::AudioDataOutput::LeftChannel).size();
       if (nSamples > SAMPLES) nSamples = SAMPLES;
       for(int i = 0; i < nSamples; i++)
-        m_audioData[i] = data[Phonon::AudioDataOutput::LeftChannel][i];
+        m_audioData[i] = (data[Phonon::AudioDataOutput::LeftChannel][i]+data[Phonon::AudioDataOutput::RightChannel][i])/131070;
     }/*
     if ( data.contains( Phonon::AudioDataOutput::RightChannel ) ){
       nSamples = data.value(Phonon::AudioDataOutput::RightChannel).size();
