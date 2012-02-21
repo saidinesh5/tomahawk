@@ -14,7 +14,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-
+#include <GL/glu.h>
 
 #include "vsxurenderer.h"
 #include "VSXuWidget.h"
@@ -61,6 +61,7 @@ void VSXuRenderer::updateAudioData(float *audioData, float *freqData)
 
 void VSXuRenderer::run()
 {
+  msleep(1000);
   m_widget->makeCurrent();
   glEnable(GL_BLEND);
   glEnable(GL_POLYGON_SMOOTH);
