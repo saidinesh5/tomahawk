@@ -22,7 +22,7 @@ else (VSXU_INCLUDE_DIRS AND VSXU_LIBRARIES)
 
   find_library (VSXU_LIBRARIES
     NAMES
-    libvsxu_engine
+    libvsxu_engine libvsxu_engine_graphics libvsxu_engine_audiovisual
     PATHS
     ${VSXU_LIBRARY_DIRS}
     ${LIB_INSTALL_DIR}

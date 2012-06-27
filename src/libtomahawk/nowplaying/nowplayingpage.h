@@ -22,6 +22,7 @@
 
 #include <viewpage.h>
 #include <QWidget>
+#include <QGLContext>
 #include "VSXuWidget.h"
 
 class NowPlayingPage : public QWidget,public Tomahawk::ViewPage

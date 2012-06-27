@@ -17,7 +17,8 @@
 */
 
 #include <QVBoxLayout>
-#include <QPushButton>
+#include <QGLFormat>
+
 #include "nowplayingpage.h"
 
 NowPlayingPage::NowPlayingPage(QWidget* parent):

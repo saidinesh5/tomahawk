@@ -1,10 +1,10 @@
 /*
-    A Threaded Renderer for the computationally intensive VSXu.
-    Copyright (C) 2012  Dinesh <dsai@chitika.com>
+    The Rendering Thread doing the main VSXu Rendering
+    Copyright (C) 2012  Dinesh Manajipet <saidinesh5@gmail.com>
 
-    This program is free software: you can redistribute it and/or modify
+    This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
+    the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
 
     This program is distributed in the hope that it will be useful,
@@ -12,49 +12,37 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU General Public License along
+    with this program; if not, write to the Free Software Foundation, Inc.,
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
 
 #ifndef VSXURENDERER_H
 #define VSXURENDERER_H
 
-#include <QSize>
 #include <QThread>
-#include <QStringList>
-
 #include <vsx_manager.h>
 
-#include "fftreal/fftreal.h"
-
 class VSXuWidget;
-
-class VSXuRenderer : public QThread
+class VSXuRenderer: public QThread
 {
   Q_OBJECT
-    //The class that provides us with the OpenGL Context we need
+
+    vsx_manager_abs *m_manager;
     VSXuWidget *m_widget;
-
-    //The data we need for the VSXu
-    vsx_manager_abs* m_manager;
-
-    float *m_audioData;
-    float *m_freqData;
-    bool m_doResize, m_doRendering, m_doAudioDataUpdate;
+    bool m_isRunning, m_doResize;
     int m_width,m_height;
-    int m_nFrames;
+    float m_soundData[512];
 
-public:
-    explicit VSXuRenderer(VSXuWidget *widget);
-    ~VSXuRenderer();
-
-    void resizeViewport(int w, int h);
-    void updateAudioData( float *audioData, float *freqData );
-
+    //The Main Loop for VSXu Renderer
     void run();
-    void stop();
-
+public:
+    VSXuRenderer(VSXuWidget* parent);
+    ~VSXuRenderer();
+    void injectSound(float soundData[]);
+    void stop(){ m_isRunning = false;}
+    void resize(int w, int h);
 };
 
 #endif // VSXURENDERER_H
