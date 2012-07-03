@@ -16,10 +16,11 @@
     with this program; if not, write to the Free Software Foundation, Inc.,
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
-#include <QtOpenGL>
+
 #include <GL/glu.h>
 #include "nowplaying/vsxurenderer.h"
-#include "nowplaying/VSXuWidget.h"
+#include "VSXuWidget.h"
+#include "utils/logger.h"
 
 VSXuRenderer::VSXuRenderer(VSXuWidget* parent):
   m_widget(parent),
@@ -53,18 +54,23 @@ void VSXuRenderer::injectSound(float soundData[])
 
 void VSXuRenderer::run()
 {
-    msleep(50);
+    //HACK: Waiting till the core has done all the paint events have been done and QGLWidget has been actually created
+    msleep(1000);
+    m_widget->makeCurrent();
+
     glEnable(GL_BLEND);
     glEnable(GL_POLYGON_SMOOTH);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    m_widget->makeCurrent();
+    // A nice black screen till VSXu actually loads itself
+    glClearColor(0,0,0,0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
     // init manager with the shared path and sound input type.
     m_manager = manager_factory();
     m_manager->init(0,"pulseaudio");
     //for manual sound injection, use: manager->init( path.c_str() , "media_player");
-
-    m_widget->doneCurrent();
+    m_widget->swapBuffers();
 
     while (m_isRunning){
       m_widget->makeCurrent();
