@@ -1,6 +1,7 @@
 /* === This file is part of Tomahawk Player - <http://tomahawk-player.org> ===
  *
  *   Copyright 2010-2011, Christian Muehlhaeuser <muesli@tomahawk-player.org>
+ *   Copyright 2010-2011, Jeff Mitchell <jeff@tomahawk-player.org>
  *
  *   Tomahawk is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -21,16 +22,15 @@
 
 #include <QGraphicsProxyWidget>
 
-#include "dllmacro.h"
+#include "DllMacro.h"
 
-#include "artist.h"
-#include "album.h"
-#include "query.h"
+#include "Artist.h"
+#include "Album.h"
+#include "Query.h"
 #include "context/ContextPage.h"
-#include "infosystem/infosystem.h"
 
 class TreeModel;
-class ArtistView;
+class TreeView;
 
 class DLLEXPORT RelatedArtistsContext : public Tomahawk::ContextPage
 {
@@ -55,16 +55,14 @@ public slots:
     virtual void setQuery( const Tomahawk::query_ptr& query );
 
 private slots:
-    void infoSystemInfo( Tomahawk::InfoSystem::InfoRequestData requestData, QVariant output );
-    void infoSystemFinished( QString target );
+    void onSimilarArtistsLoaded();
 
 private:
-    ArtistView* m_relatedView;
+    TreeView* m_relatedView;
     TreeModel* m_relatedModel;
 
     QGraphicsProxyWidget* m_proxy;
 
-    QString m_infoId;
     Tomahawk::artist_ptr m_artist;
 };
 

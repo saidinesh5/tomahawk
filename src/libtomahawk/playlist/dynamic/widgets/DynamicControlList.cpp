@@ -29,8 +29,9 @@
 
 #include "DynamicControlWrapper.h"
 #include "dynamic/GeneratorInterface.h"
-#include "utils/tomahawkutils.h"
-#include "utils/logger.h"
+#include "utils/TomahawkUtils.h"
+#include "utils/Logger.h"
+#include "Source.h"
 
 using namespace Tomahawk;
 
@@ -168,7 +169,7 @@ DynamicControlList::removeControl()
     m_controls.removeAll( w );
 
     m_generator->removeControl( w->control() );
-    delete w;
+    w->deleteLater();
 
     emit controlsChanged( false );
 }

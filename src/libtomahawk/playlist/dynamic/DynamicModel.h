@@ -1,6 +1,7 @@
 /* === This file is part of Tomahawk Player - <http://tomahawk-player.org> ===
  *
  *   Copyright 2010-2011, Leo Franchi <lfranchi@kde.org>
+ *   Copyright 2010-2011, Jeff Mitchell <jeff@tomahawk-player.org>
  *
  *   Tomahawk is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -19,8 +20,8 @@
 #ifndef DYNAMIC_MODEL_H
 #define DYNAMIC_MODEL_H
 
-#include "playlistmodel.h"
-#include "query.h"
+#include "PlaylistModel.h"
+#include "Query.h"
 
 namespace Tomahawk
 {
@@ -45,7 +46,7 @@ public:
 
     void loadPlaylist( const dynplaylist_ptr& playlist, bool loadEntries = true );
 
-    virtual void remove( const QModelIndex& index, bool moreToCome = false );
+    virtual void removeIndex( const QModelIndex& index, bool moreToCome = false );
 
     bool searchingForNext() const { return m_searchingForNext; }
 

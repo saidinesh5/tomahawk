@@ -1,6 +1,7 @@
 /* === This file is part of Tomahawk Player - <http://tomahawk-player.org> ===
  *
  *   Copyright 2010-2011, Christian Muehlhaeuser <muesli@tomahawk-player.org>
+ *   Copyright 2010-2011, Jeff Mitchell <jeff@tomahawk-player.org>
  *
  *   Tomahawk is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -20,21 +21,24 @@
 #include "ArtistInfoWidget_p.h"
 #include "ui_ArtistInfoWidget.h"
 
-#include "audio/audioengine.h"
-#include "playlist/trackheader.h"
-#include "playlist/treemodel.h"
-#include "playlist/playlistmodel.h"
-#include "playlist/treeproxymodel.h"
+#include <QScrollArea>
+#include <QScrollBar>
 
-#include "database/databasecommand_alltracks.h"
-#include "database/databasecommand_allalbums.h"
+#include "audio/AudioEngine.h"
+#include "playlist/GridItemDelegate.h"
+#include "playlist/PlayableModel.h"
+#include "playlist/TreeModel.h"
+#include "playlist/PlaylistModel.h"
+#include "playlist/TreeProxyModel.h"
+#include "Source.h"
 
-#include "utils/stylehelper.h"
-#include "utils/tomahawkutilsgui.h"
-#include "utils/logger.h"
+#include "database/DatabaseCommand_AllTracks.h"
+#include "database/DatabaseCommand_AllAlbums.h"
 
-#include "widgets/OverlayButton.h"
-#include "widgets/overlaywidget.h"
+#include "Pipeline.h"
+#include "utils/StyleHelper.h"
+#include "utils/TomahawkUtilsGui.h"
+#include "utils/Logger.h"
 
 using namespace Tomahawk;
 
@@ -43,55 +47,111 @@ ArtistInfoWidget::ArtistInfoWidget( const Tomahawk::artist_ptr& artist, QWidget*
     : QWidget( parent )
     , ui( new Ui::ArtistInfoWidget )
     , m_artist( artist )
-    , m_infoId( uuid() )
 {
-    ui->setupUi( this );
+    QWidget* widget = new QWidget;
+    ui->setupUi( widget );
 
-    m_plInterface = Tomahawk::playlistinterface_ptr( new MetaPlaylistInterface( this ) );
+    QPalette pal = palette();
+    pal.setColor( QPalette::Window, QColor( "#454e59" ) );
 
-    ui->albums->setFrameShape( QFrame::NoFrame );
-    ui->albums->setAttribute( Qt::WA_MacShowFocusRect, 0 );
-    ui->relatedArtists->setFrameShape( QFrame::NoFrame );
-    ui->relatedArtists->setAttribute( Qt::WA_MacShowFocusRect, 0 );
-    ui->topHits->setFrameShape( QFrame::NoFrame );
-    ui->topHits->setAttribute( Qt::WA_MacShowFocusRect, 0 );
+    widget->setPalette( pal );
+    widget->setAutoFillBackground( true );
 
-    TomahawkUtils::unmarginLayout( layout() );
-    TomahawkUtils::unmarginLayout( ui->layoutWidget->layout() );
+    m_plInterface = Tomahawk::playlistinterface_ptr( new MetaArtistInfoInterface( this ) );
+
+/*    TomahawkUtils::unmarginLayout( ui->layoutWidget->layout() );
     TomahawkUtils::unmarginLayout( ui->layoutWidget1->layout() );
     TomahawkUtils::unmarginLayout( ui->layoutWidget2->layout() );
-    TomahawkUtils::unmarginLayout( ui->albumHeader->layout() );
+    TomahawkUtils::unmarginLayout( ui->albumHeader->layout() );*/
 
-    m_albumsModel = new TreeModel( ui->albums );
-    m_albumsModel->setMode( InfoSystemMode );
-    ui->albums->setTreeModel( m_albumsModel );
+    m_albumsModel = new PlayableModel( ui->albums );
+    ui->albums->setPlayableModel( m_albumsModel );
+    ui->topHits->setEmptyTip( tr( "Sorry, we could not find any albums for this artist!" ) );
 
-    m_relatedModel = new TreeModel( ui->relatedArtists );
-    m_relatedModel->setColumnStyle( TreeModel::TrackOnly );
-    ui->relatedArtists->setTreeModel( m_relatedModel );
-    ui->relatedArtists->setSortingEnabled( false );
+    m_relatedModel = new PlayableModel( ui->relatedArtists );
+    ui->relatedArtists->setPlayableModel( m_relatedModel );
     ui->relatedArtists->proxyModel()->sort( -1 );
+    ui->topHits->setEmptyTip( tr( "Sorry, we could not find any related artists!" ) );
 
     m_topHitsModel = new PlaylistModel( ui->topHits );
-    m_topHitsModel->setStyle( TrackModel::Short );
-    ui->topHits->setTrackModel( m_topHitsModel );
+    ui->topHits->proxyModel()->setStyle( PlayableProxyModel::Short );
+    ui->topHits->setPlayableModel( m_topHitsModel );
     ui->topHits->setSortingEnabled( false );
+    ui->topHits->setEmptyTip( tr( "Sorry, we could not find any top hits for this artist!" ) );
 
-    m_pixmap = QPixmap( RESPATH "images/no-album-no-case.png" ).scaledToWidth( 48, Qt::SmoothTransformation );
+    ui->relatedArtists->setAutoFitItems( false );
+    ui->relatedArtists->setWrapping( false );
+    ui->relatedArtists->setVerticalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
+    ui->relatedArtists->setHorizontalScrollBarPolicy( Qt::ScrollBarAsNeeded );
+    ui->relatedArtists->delegate()->setItemSize( QSize( 170, 170 ) );
 
-    m_button = new OverlayButton( ui->albums );
-    m_button->setText( tr( "Click to show Super Collection Albums" ) );
-    m_button->setCheckable( true );
-    m_button->setChecked( true );
+    ui->albums->setAutoFitItems( false );
+    ui->albums->setWrapping( false );
+    ui->albums->setVerticalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
+    ui->albums->setHorizontalScrollBarPolicy( Qt::ScrollBarAsNeeded );
+    ui->albums->delegate()->setItemSize( QSize( 170, 170 ) );
+    ui->albums->proxyModel()->setHideDupeItems( true );
 
-    connect( m_button, SIGNAL( clicked() ), SLOT( onModeToggle() ) );
-    connect( m_albumsModel, SIGNAL( modeChanged( Tomahawk::ModelMode ) ), SLOT( setMode( Tomahawk::ModelMode ) ) );
-    connect( m_albumsModel, SIGNAL( loadingStarted() ), SLOT( onLoadingStarted() ) );
-    connect( m_albumsModel, SIGNAL( loadingFinished() ), SLOT( onLoadingFinished() ) );
+    ui->topHits->setFrameShape( QFrame::StyledPanel );
+    ui->topHits->setAttribute( Qt::WA_MacShowFocusRect, 0 );
 
-    connect( Tomahawk::InfoSystem::InfoSystem::instance(),
-             SIGNAL( info( Tomahawk::InfoSystem::InfoRequestData, QVariant ) ),
-             SLOT( infoSystemInfo( Tomahawk::InfoSystem::InfoRequestData, QVariant ) ) );
+    m_pixmap = TomahawkUtils::defaultPixmap( TomahawkUtils::DefaultArtistImage, TomahawkUtils::ScaledCover, QSize( 48, 48 ) );
+    ui->cover->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::DefaultArtistImage, TomahawkUtils::ScaledCover, QSize( ui->cover->sizeHint() ) ) );
+
+    ui->biography->setFrameShape( QFrame::NoFrame );
+    ui->biography->setAttribute( Qt::WA_MacShowFocusRect, 0 );
+    TomahawkUtils::styleScrollBar( ui->biography->verticalScrollBar() );
+
+    QFont f = font();
+    f.setBold( true );
+    f.setPixelSize( 18 );
+    ui->artistLabel->setFont( f );
+
+    QPalette p = ui->biography->palette();
+    p.setColor( QPalette::Foreground, Qt::white );
+    p.setColor( QPalette::Text, Qt::white );
+
+    ui->artistLabel->setPalette( p );
+    ui->biography->setPalette( p );
+    ui->label->setPalette( p );
+    ui->label_2->setPalette( p );
+    ui->label_3->setPalette( p );
+
+    QScrollArea* area = new QScrollArea();
+    area->setWidgetResizable( true );
+    area->setWidget( widget );
+
+    area->setStyleSheet( "QScrollArea { background-color: #454e59; }" );
+    area->setFrameShape( QFrame::NoFrame );
+    area->setAttribute( Qt::WA_MacShowFocusRect, 0 );
+
+    QVBoxLayout* layout = new QVBoxLayout();
+    layout->addWidget( area );
+    setLayout( layout );
+    TomahawkUtils::unmarginLayout( layout );
+
+    TomahawkUtils::styleScrollBar( ui->albums->horizontalScrollBar() );
+    TomahawkUtils::styleScrollBar( ui->relatedArtists->horizontalScrollBar() );
+
+    ui->biography->setStyleSheet( "QTextBrowser#biography { background-color: transparent; }" );
+
+    ui->albums->setStyleSheet( "QListView { background-color: transparent; }" );
+    ui->albumFrame->setStyleSheet( "QFrame#albumFrame { background-color: transparent; }"
+                               "QFrame#albumFrame { "
+                               "border-image: url(" RESPATH "images/scrollbar-vertical-handle.png) 3 3 3 3 stretch stretch;"
+                               "border-top: 3px transparent; border-bottom: 3px transparent; border-right: 3px transparent; border-left: 3px transparent; }" );
+
+    ui->relatedArtists->setStyleSheet( "QListView { background-color: transparent; }" );
+    ui->artistFrame->setStyleSheet( "QFrame#artistFrame { background-color: transparent; }"
+                               "QFrame#artistFrame { "
+                               "border-image: url(" RESPATH "images/scrollbar-vertical-handle.png) 3 3 3 3 stretch stretch;"
+                               "border-top: 3px transparent; border-bottom: 3px transparent; border-right: 3px transparent; border-left: 3px transparent; }" );
+
+//    ui->topHits->setStyleSheet( "QTreeView#topHits { background-color: transparent; }" );
+    ui->trackFrame->setStyleSheet( "QFrame#trackFrame { background-color: transparent; }"
+                               "QFrame#trackFrame { "
+                               "border-image: url(" RESPATH "images/scrollbar-vertical-handle.png) 3 3 3 3 stretch stretch;"
+                               "border-top: 3px transparent; border-bottom: 3px transparent; border-right: 3px transparent; border-left: 3px transparent; }" );
 
     load( artist );
 }
@@ -110,55 +170,22 @@ ArtistInfoWidget::playlistInterface() const
 }
 
 
-void
-ArtistInfoWidget::setMode( ModelMode mode )
-{
-    m_button->setChecked( mode == InfoSystemMode );
-
-    if ( m_albumsModel->mode() != mode )
-        onModeToggle();
-
-    if ( mode == InfoSystemMode )
-        m_button->setText( tr( "Click to show Super Collection Albums" ) );
-    else
-        m_button->setText( tr( "Click to show Official Albums" ) );
-}
-
-
-void
-ArtistInfoWidget::onModeToggle()
-{
-    m_albumsModel->setMode( m_button->isChecked() ? InfoSystemMode : DatabaseMode );
-    m_albumsModel->addAlbums( m_artist, QModelIndex() );
-}
-
-
-void
-ArtistInfoWidget::onLoadingStarted()
-{
-    m_button->setEnabled( false );
-    m_button->hide();
-}
-
-
-void
-ArtistInfoWidget::onLoadingFinished()
-{
-    m_button->setEnabled( true );
-    m_button->show();
-}
-
-
 bool
 ArtistInfoWidget::isBeingPlayed() const
 {
-    if ( ui->albums->playlistInterface() == AudioEngine::instance()->currentTrackPlaylist() )
+    if ( ui->albums && ui->albums->isBeingPlayed() )
         return true;
 
-    if ( ui->relatedArtists->playlistInterface() == AudioEngine::instance()->currentTrackPlaylist() )
+    if ( ui->relatedArtists && ui->relatedArtists->isBeingPlayed() )
         return true;
 
-    if ( ui->topHits->playlistInterface() == AudioEngine::instance()->currentTrackPlaylist() )
+    if ( ui->albums && ui->albums->playlistInterface() == AudioEngine::instance()->currentTrackPlaylist() )
+        return true;
+
+    if ( ui->relatedArtists && ui->relatedArtists->playlistInterface() == AudioEngine::instance()->currentTrackPlaylist() )
+        return true;
+
+    if ( ui->topHits && ui->topHits->playlistInterface() == AudioEngine::instance()->currentTrackPlaylist() )
         return true;
 
     return false;
@@ -168,13 +195,19 @@ ArtistInfoWidget::isBeingPlayed() const
 bool
 ArtistInfoWidget::jumpToCurrentTrack()
 {
-    if ( ui->albums->jumpToCurrentTrack() )
+    if ( ui->albums && ui->albums->jumpToCurrentTrack() )
         return true;
 
-    if ( ui->relatedArtists->jumpToCurrentTrack() )
+    if ( ui->relatedArtists && ui->relatedArtists->jumpToCurrentTrack() )
         return true;
 
-    if ( ui->topHits->jumpToCurrentTrack() )
+    if ( ui->topHits && ui->topHits->jumpToCurrentTrack() )
+        return true;
+
+    if ( ui->albums && ui->albums->jumpToCurrentTrack() )
+        return true;
+
+    if ( ui->relatedArtists && ui->relatedArtists->jumpToCurrentTrack() )
         return true;
 
     return false;
@@ -185,115 +218,93 @@ void
 ArtistInfoWidget::load( const artist_ptr& artist )
 {
     if ( !m_artist.isNull() )
+    {
         disconnect( m_artist.data(), SIGNAL( updated() ), this, SLOT( onArtistImageUpdated() ) );
+        disconnect( m_artist.data(), SIGNAL( similarArtistsLoaded() ), this, SLOT( onSimilarArtistsLoaded() ) );
+        disconnect( m_artist.data(), SIGNAL( biographyLoaded() ), this, SLOT( onBiographyLoaded() ) );
+        disconnect( m_artist.data(), SIGNAL( albumsAdded( QList<Tomahawk::album_ptr>, Tomahawk::ModelMode ) ),
+                    this,              SLOT( onAlbumsFound( QList<Tomahawk::album_ptr>, Tomahawk::ModelMode ) ) );
+        disconnect( m_artist.data(), SIGNAL( tracksAdded( QList<Tomahawk::query_ptr>, Tomahawk::ModelMode, Tomahawk::collection_ptr ) ),
+                    this,              SLOT( onTracksFound( QList<Tomahawk::query_ptr>, Tomahawk::ModelMode ) ) );
+    }
 
     m_artist = artist;
     m_title = artist->name();
-    m_albumsModel->addAlbums( artist, QModelIndex(), true );
 
-    Tomahawk::InfoSystem::InfoStringHash artistInfo;
-    artistInfo["artist"] = artist->name();
-
-    Tomahawk::InfoSystem::InfoRequestData requestData;
-    requestData.caller = m_infoId;
-    requestData.customData = QVariantMap();
-
-    requestData.input = artist->name();
-    requestData.type = Tomahawk::InfoSystem::InfoArtistBiography;
-    Tomahawk::InfoSystem::InfoSystem::instance()->getInfo( requestData );
-
-    requestData.input = QVariant::fromValue< Tomahawk::InfoSystem::InfoStringHash >( artistInfo );
-
-    requestData.type = Tomahawk::InfoSystem::InfoArtistSimilars;
-    requestData.requestId = TomahawkUtils::infosystemRequestId();
-    Tomahawk::InfoSystem::InfoSystem::instance()->getInfo( requestData );
-
-    requestData.type = Tomahawk::InfoSystem::InfoArtistSongs;
-    requestData.requestId = TomahawkUtils::infosystemRequestId();
-    Tomahawk::InfoSystem::InfoSystem::instance()->getInfo( requestData );
-
+    connect( m_artist.data(), SIGNAL( biographyLoaded() ), SLOT( onBiographyLoaded() ) );
+    connect( m_artist.data(), SIGNAL( similarArtistsLoaded() ), SLOT( onSimilarArtistsLoaded() ) );
     connect( m_artist.data(), SIGNAL( updated() ), SLOT( onArtistImageUpdated() ) );
+    connect( m_artist.data(), SIGNAL( albumsAdded( QList<Tomahawk::album_ptr>, Tomahawk::ModelMode ) ),
+                                SLOT( onAlbumsFound( QList<Tomahawk::album_ptr>, Tomahawk::ModelMode ) ) );
+    connect( m_artist.data(), SIGNAL( tracksAdded( QList<Tomahawk::query_ptr>, Tomahawk::ModelMode, Tomahawk::collection_ptr ) ),
+                                SLOT( onTracksFound( QList<Tomahawk::query_ptr>, Tomahawk::ModelMode ) ) );
+
+    ui->artistLabel->setText( artist->name() );
+
+    m_topHitsModel->startLoading();
+
+    if ( !m_artist->albums( Mixed ).isEmpty() )
+        onAlbumsFound( m_artist->albums( Mixed ), Mixed );
+
+    if ( !m_artist->tracks().isEmpty() )
+        onTracksFound( m_artist->tracks(), Mixed );
+
+    if ( !m_artist->similarArtists().isEmpty() )
+        onSimilarArtistsLoaded();
+
+    if ( !m_artist->biography().isEmpty() )
+        onBiographyLoaded();
+
     onArtistImageUpdated();
 }
 
 
 void
-ArtistInfoWidget::infoSystemInfo( Tomahawk::InfoSystem::InfoRequestData requestData, QVariant output )
+ArtistInfoWidget::onAlbumsFound( const QList<Tomahawk::album_ptr>& albums, ModelMode mode )
 {
-    if ( requestData.caller != m_infoId )
-        return;
+    Q_UNUSED( mode );
 
-    InfoSystem::InfoStringHash trackInfo;
-    trackInfo = requestData.input.value< InfoSystem::InfoStringHash >();
+    m_albumsModel->appendAlbums( albums );
+}
 
-    if ( output.canConvert< QVariantMap >() )
-    {
-        const QString artist = requestData.input.toString();
-        if ( trackInfo["artist"] != m_artist->name() && artist != m_artist->name() )
-        {
-            qDebug() << "Returned info was for:" << trackInfo["artist"] << "- was looking for:" << m_artist->name();
-            return;
-        }
-    }
 
-    QVariantMap returnedData = output.value< QVariantMap >();
-    switch ( requestData.type )
-    {
-        case InfoSystem::InfoArtistBiography:
-        {
-            QVariantMap bmap = output.toMap();
+void
+ArtistInfoWidget::onTracksFound( const QList<Tomahawk::query_ptr>& queries, ModelMode mode )
+{
+    Q_UNUSED( mode );
 
-            foreach ( const QString& source, bmap.keys() )
-            {
-                if ( m_longDescription.isEmpty() || source == "last.fm" )
-                    m_longDescription = bmap[ source ].toHash()[ "text" ].toString();
-            }
-            emit longDescriptionChanged( m_longDescription );
-            break;
-        }
+    m_topHitsModel->finishLoading();
+    m_topHitsModel->appendQueries( queries );
+}
 
-        case InfoSystem::InfoArtistSongs:
-        {
-            const QStringList tracks = returnedData["tracks"].toStringList();
 
-            QList< query_ptr > queries;
-            int i = 0;
-            foreach ( const QString& track, tracks )
-            {
-                queries << Query::get( m_artist->name(), track, QString(), uuid() );
+void
+ArtistInfoWidget::onSimilarArtistsLoaded()
+{
+    m_relatedModel->appendArtists( m_artist->similarArtists() );
+}
 
-                if ( ++i == 15 )
-                    break;
-            }
 
-            m_topHitsModel->append( queries );
-            break;
-        }
+void
+ArtistInfoWidget::onBiographyLoaded()
+{
+    m_longDescription = m_artist->biography();
+    emit longDescriptionChanged( m_longDescription );
 
-        case InfoSystem::InfoArtistSimilars:
-        {
-            const QStringList artists = returnedData["artists"].toStringList();
-            foreach ( const QString& artist, artists )
-            {
-                m_relatedModel->addArtists( Artist::get( artist ) );
-            }
-            break;
-        }
-
-        default:
-            return;
-    }
+    ui->biography->setHtml( m_artist->biography() );
 }
 
 
 void
 ArtistInfoWidget::onArtistImageUpdated()
 {
-    if ( m_artist->cover().isNull() )
+    if ( m_artist->cover( QSize( 0, 0 ) ).isNull() )
         return;
 
-    m_pixmap.loadFromData( m_artist->cover() );
+    m_pixmap = m_artist->cover( QSize( 0, 0 ) );
     emit pixmapChanged( m_pixmap );
+
+    ui->cover->setPixmap( m_artist->cover( ui->cover->sizeHint() ) );
 }
 
 

@@ -1,10 +1,7 @@
 PROJECT( tomahawk )
-CMAKE_MINIMUM_REQUIRED( VERSION 2.8 )
+CMAKE_MINIMUM_REQUIRED( VERSION 2.8.6 )
 SET( CMAKE_MODULE_PATH  "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules" )
-
-IF( ${CMAKE_VERSION} VERSION_GREATER 2.8.3 )
-  CMAKE_POLICY(SET CMP0017 NEW)
-ENDIF( ${CMAKE_VERSION} VERSION_GREATER 2.8.3 )
+CMAKE_POLICY(SET CMP0017 NEW)
 
 ###
 ### Tomahawk application info
@@ -15,16 +12,35 @@ SET( TOMAHAWK_APPLICATION_NAME  "Tomahawk" )
 SET( TOMAHAWK_DESCRIPTION_SUMMARY "The social media player" )
 
 SET( TOMAHAWK_VERSION_MAJOR 0 )
-SET( TOMAHAWK_VERSION_MINOR 3 )
+SET( TOMAHAWK_VERSION_MINOR 5 )
 SET( TOMAHAWK_VERSION_PATCH 99 )
 
 #SET( TOMAHAWK_VERSION_RC 0 )
 
+# enforce proper symbol exporting on all platforms
+add_definitions( "-fvisibility=hidden" )
 
 # build options
 option(BUILD_GUI "Build Tomahawk with GUI" ON)
 option(BUILD_RELEASE "Generate TOMAHAWK_VERSION without GIT info" OFF)
+option(WITH_BREAKPAD "Build with breakpad integration" ON)
+option(WITH_CRASHREPORTER "Build with CrashReporter" ON)
+option(WITH_BINARY_ATTICA "Enable support for downloading binary resolvers automatically" ON)
 option(LEGACY_KDE_INTEGRATION "Install tomahawk.protocol file, deprecated since 4.6.0" OFF)
+
+IF( CMAKE_SYSTEM_PROCESSOR MATCHES "arm" )
+    message(STATUS "Build of breakpad library disabled on this platform.")
+    SET(WITH_BREAKPAD OFF)
+    SET(WITH_CRASHREPORTER OFF)
+ENDIF()
+
+# add definitions based on build options
+IF( WITH_BREAKPAD )
+    message(STATUS "Build with support for breakpad.")
+    IF( CMAKE_COMPILER_IS_GNUCXX )
+        ADD_DEFINITIONS( -DSTDC_HEADERS -std=gnu++98 )
+    ENDIF()
+ENDIF()
 
 # generate version string
 
@@ -38,7 +54,7 @@ ENDIF()
 IF( NOT BUILD_RELEASE )
     INCLUDE( CMakeDateStamp )
     SET( TOMAHAWK_VERSION_DATE "${CMAKE_DATESTAMP_YEAR}${CMAKE_DATESTAMP_MONTH}${CMAKE_DATESTAMP_DAY}" )
-    IF( ${TOMAHAWK_VERSION_DATE} GREATER 0)
+    IF( TOMAHAWK_VERSION_DATE GREATER 0)
         SET( TOMAHAWK_VERSION ${TOMAHAWK_VERSION}.${TOMAHAWK_VERSION_DATE} )
     ENDIF()
 
@@ -56,7 +72,7 @@ SET( CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" )
 SET( CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" )
 
 # make predefined install dirs available everywhere
-INCLUDE(GNUInstallDirs)
+INCLUDE( GNUInstallDirs )
 
 # installer creation
 INCLUDE( TomahawkCPack.cmake )
@@ -88,8 +104,8 @@ if(PHONON_FOUND)
     message(STATUS "Phonon found; ensure that phonon-vlc is at least 0.4")
 endif()
 
-macro_optional_find_package(LibEchonest 1.1.10)
-macro_log_feature(LIBECHONEST_FOUND "Echonest" "Qt library for communicating with The Echo Nest" "http://projects.kde.org/libechonest" TRUE "" "libechonest 1.1.10 is needed for dynamic playlists and the infosystem")
+macro_optional_find_package(Echonest 2.0.0)
+macro_log_feature(ECHONEST_FOUND "Echonest" "Qt library for communicating with The Echo Nest" "http://projects.kde.org/libechonest" TRUE "" "libechonest 2.0.0 is needed for dynamic playlists and the infosystem")
 
 macro_optional_find_package(CLucene 0.9.23)
 macro_log_feature(CLucene_FOUND "CLucene" "The open-source, C++ search engine" "http://clucene.sf.net" TRUE "" "CLucene is used for indexing the collection")
@@ -102,48 +118,29 @@ macro_log_feature(TAGLIB_FOUND "TagLib" "Audio Meta-Data Library" "http://develo
 include( CheckTagLibFileName )
 check_taglib_filename( COMPLEX_TAGLIB_FILENAME )
 
-macro_optional_find_package(Boost)
+macro_optional_find_package( Boost )
 macro_log_feature(Boost_FOUND "Boost" "Provides free peer-reviewed portable C++ source libraries" "http://www.boost.org" TRUE "" "") #FIXME: give useful explaination
 
 macro_optional_find_package(QCA2)
 macro_log_feature(QCA2_FOUND "QCA2" "Provides encryption and signing functions required for Grooveshark resolver" "http://delta.affinix.com/qca/" FALSE "" "")
 
-macro_optional_find_package(LibAttica)
-macro_log_feature(LIBATTICA_FOUND "libattica" "Provides support for automatic fetching and managing of resolvers from the tomahawk website" "https://projects.kde.org/projects/kdesupport/attica" FALSE "" "")
+macro_optional_find_package(LibAttica 0.4.0)
+macro_log_feature(LIBATTICA_FOUND "libattica" "Provides support for automatic fetching and managing of resolvers from the tomahawk website" "https://projects.kde.org/projects/kdesupport/attica" TRUE "" "")
 
 macro_optional_find_package(QuaZip)
-macro_log_feature(QuaZip_FOUND "QuaZip" "Provides support for extracting downloaded resolvers automatically." "http://quazip.sourceforge.net/" FALSE "" "")
+macro_log_feature(QuaZip_FOUND "QuaZip" "Provides support for extracting downloaded resolvers automatically." "http://quazip.sourceforge.net/" TRUE "" "")
 
-macro_optional_find_package(Jreen)
-macro_log_feature(LIBJREEN_FOUND "Jreen" "Qt XMPP Library" "https://github.com/euroelessar/jreen" FALSE "" "Jreen is needed for the Jabber SIP plugin.\n")
+macro_optional_find_package(Jreen 1.0.5)
+macro_log_feature(JREEN_FOUND "Jreen" "Qt XMPP Library" "http://qutim.org/jreen / https://github.com/euroelessar/jreen" FALSE "" "Jreen is needed for the Jabber SIP plugin.\n")
 
 macro_optional_find_package(QTweetLib)
 macro_log_feature(QTWEETLIB_FOUND "QTweetLib" "Qt Twitter Library" "https://github.com/minimoog/QTweetLib" FALSE "" "QTweetLib is needed for the Twitter SIP plugin.\n")
 
+macro_optional_find_package(LibLastFm 1.0.0)
+macro_log_feature(LIBLASTFM_FOUND "liblastfm" "Qt library for the Last.fm webservices" "https://github.com/eartle/liblastfm" TRUE "" "liblastfm is needed for scrobbling tracks to Last.fm and fetching cover artwork")
+
 macro_optional_find_package(VSXu)
-macro_log_feature(VSXU_FOUND "VSXu" "Vovoid VSXu Ultra" "https://www.vsxu.com" FALSE "" "VSXu is needed for some really cool music visualization.\n")
-
-IF( VSXU_FOUND )
-    find_package(OpenGL)
-ENDIF()
-
-IF( NOT QuaZip_FOUND )
-    add_subdirectory( ${CMAKE_SOURCE_DIR}/src/libtomahawk/thirdparty/quazip )
-    SET( QuaZip_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/libtomahawk/thirdparty/quazip )
-    SET( QuaZip_LIBRARY quazip )
-    SET( QuaZip_LIBRARIES ${QuaZip_LIBRARY} )
-    SET( QuaZip_FOUND true )
-    macro_log_feature(QuaZip_FOUND "QuaZip" "Provides support for extracting downloaded resolvers automatically. Building internal copy" "http://quazip.sourceforge.net/" FALSE "" "")
-
-    # copy headers to build/quazip so we can use proper includes inside the code
-    FILE( COPY ${CMAKE_SOURCE_DIR}/src/libtomahawk/thirdparty/quazip/quazip/ DESTINATION ${CMAKE_BINARY_DIR}/libtomahawk/thirdparty/quazip )
-ENDIF()
-
-# required
-#While we distribute our own liblastfm2, don't need to look for it
-#macro_optional_find_package(LibLastFm 0.3.3)
-#macro_log_feature(LIBLASTFM_FOUND "LastFm" "Qt library for the Last.fm webservices" "https://github.com/mxcl/liblastfm" FALSE "" "liblastfm is needed for scrobbling tracks to Last.fm and fetching cover artwork")
-set(LIBLASTFM_FOUND true)
+macro_log_feature(VSXU_FOUND "VSXu" "Vovoid VSXu Audio Visual library" "http://www.vsxu.com" TRUE "" "VSXu is needed to provide cool music visualis for currently playing music.")
 
 #### submodules start
 # automatically init submodules here, don't delete this code we may add submodules again
@@ -166,8 +163,8 @@ SET( LIBPORTFWD_LIBRARIES ${LIBPORTFWD_LIBRARY} )
 ADD_SUBDIRECTORY( ${THIRDPARTY_DIR}/libportfwd )
 
 # we need pthreads too
-#macro_optional_find_package(Threads)
-#macro_log_feature(THREADS_FOUND "Threads" "Threading Library" "" TRUE "" "Platform specific library for threading")
+macro_optional_find_package(Threads)
+macro_log_feature(THREADS_FOUND "Threads" "Threading Library" "" TRUE "" "Platform specific library for threading")
 
 macro_optional_find_package(KDE4)
 macro_optional_find_package(KDE4Installed)
@@ -217,9 +214,3 @@ ADD_SUBDIRECTORY( src/libtomahawk )
 SET( TOMAHAWK_LIBRARIES tomahawklib )
 ADD_SUBDIRECTORY( src )
 ADD_SUBDIRECTORY( admin )
-
-IF( BUILD_GUI )
-    IF( NOT DISABLE_CRASHREPORTER )
-        ADD_SUBDIRECTORY( src/breakpad/CrashReporter )
-    ENDIF()
-ENDIF()

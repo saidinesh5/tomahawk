@@ -26,13 +26,16 @@ THE SOFTWARE.
 #include <QLineEdit>
 #include <QVBoxLayout>
 
-#include "playlist/topbar/searchlineedit.h"
-#include "utils/tomahawkutilsgui.h"
+#include "widgets/searchlineedit/SearchLineEdit.h"
+#include "utils/TomahawkUtilsGui.h"
 
-class DLLEXPORT QSearchFieldPrivate
+class DLLEXPORT QSearchFieldPrivate : public QObject
 {
+    Q_OBJECT
 public:
-    QSearchFieldPrivate(SearchLineEdit *lineEdit) : lineEdit(lineEdit) {}
+    QSearchFieldPrivate(SearchLineEdit *lineEdit) : QObject( lineEdit ), lineEdit(lineEdit) {}
+    virtual ~QSearchFieldPrivate() {}
+
     SearchLineEdit *lineEdit;
 };
 
@@ -44,7 +47,7 @@ QSearchField::QSearchField(QWidget *parent) : QWidget(parent)
     connect(lineEdit, SIGNAL(returnPressed()),
             this, SIGNAL(returnPressed()));
 
-    pimpl = new QSearchFieldPrivate(lineEdit);
+    pimpl = QPointer< QSearchFieldPrivate>( new QSearchFieldPrivate( lineEdit ) );
 
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->addWidget(lineEdit);
@@ -52,34 +55,94 @@ QSearchField::QSearchField(QWidget *parent) : QWidget(parent)
     setContentsMargins(0, 0, 0, 0);
 
     lineEdit->setStyleSheet( "QLineEdit { border: 1px solid gray; border-radius: 6px; }" );
+    lineEdit->setMinimumHeight(27);
+    setFixedHeight(27);
 
 #ifdef Q_WS_MAC
     lineEdit->setContentsMargins(0, 0, 0, 0);
-    lineEdit->setMinimumHeight(27);
-    setFixedHeight(27);
 #else
     lineEdit->setContentsMargins(2, 2, 2, 2);
-    lineEdit->setMinimumHeight(27);
 #endif
 
 }
 
 void QSearchField::setText(const QString &text)
 {
-    pimpl->lineEdit->setText(text);
+    Q_ASSERT( !pimpl.isNull() );
+    if ( pimpl.isNull() )
+        return;
+
+    pimpl.data()->lineEdit->setText(text);
 }
 
 void QSearchField::setPlaceholderText(const QString& text)
 {
-    pimpl->lineEdit->setInactiveText( text );
+    Q_ASSERT( !pimpl.isNull() );
+    if ( pimpl.isNull() )
+        return;
+
+    pimpl.data()->lineEdit->setInactiveText( text );
 }
 
 void QSearchField::clear()
 {
-    pimpl->lineEdit->clear();
+    Q_ASSERT( !pimpl.isNull() );
+    if ( pimpl.isNull() )
+        return;
+
+    pimpl.data()->lineEdit->clear();
 }
 
 QString QSearchField::text() const
 {
-    return pimpl->lineEdit->text();
+    Q_ASSERT( !pimpl.isNull() );
+    if ( pimpl.isNull() )
+        return QString();
+
+    return pimpl.data()->lineEdit->text();
 }
+
+QString QSearchField::placeholderText() const
+{
+    Q_ASSERT( !pimpl.isNull() );
+    if ( pimpl.isNull() )
+        return QString();
+
+    return pimpl.data()->lineEdit->placeholderText();
+}
+
+void QSearchField::selectAll()
+{
+    Q_ASSERT( !pimpl.isNull() );
+    if ( pimpl.isNull() )
+        return;
+
+    pimpl.data()->lineEdit->selectAll();
+}
+
+void QSearchField::setFocus()
+{
+    Q_ASSERT( !pimpl.isNull() );
+    if ( pimpl.isNull() )
+        return;
+
+    pimpl.data()->lineEdit->setFocus();
+}
+
+void QSearchField::setFocus(Qt::FocusReason reason)
+{
+    Q_ASSERT( !pimpl.isNull() );
+    if ( pimpl.isNull() )
+        return;
+
+    pimpl.data()->lineEdit->setFocus(reason);
+}
+
+
+void QSearchField::resizeEvent(QResizeEvent* e)
+{
+    QWidget::resizeEvent(e);
+}
+
+
+#include "qsearchfield.moc"

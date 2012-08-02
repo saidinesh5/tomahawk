@@ -18,11 +18,11 @@
 
 #include "LatchedStatusItem.h"
 
-#include "source.h"
-#include "sourcelist.h"
+#include "Source.h"
+#include "SourceList.h"
 #include "JobStatusView.h"
 #include "JobStatusModel.h"
-#include "utils/tomahawkutils.h"
+#include "utils/TomahawkUtils.h"
 
 LatchedStatusItem::LatchedStatusItem( const Tomahawk::source_ptr& from, const Tomahawk::source_ptr& to, LatchedStatusManager* parent )
     : JobStatusItem()
@@ -30,7 +30,7 @@ LatchedStatusItem::LatchedStatusItem( const Tomahawk::source_ptr& from, const To
     , m_to( to )
     , m_parent( parent )
 {
-    m_text = tr( "%1 is listening along to you!" ).arg( from->friendlyName() );
+    m_text = tr( "%1 is listening along with you!" ).arg( from->friendlyName() );
 }
 
 LatchedStatusItem::~LatchedStatusItem()

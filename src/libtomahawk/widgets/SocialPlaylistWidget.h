@@ -1,6 +1,7 @@
 /* === This file is part of Tomahawk Player - <http://tomahawk-player.org> ===
  *
  *   Copyright 2010-2011, Leo Franchi <lfranchi@kde.org>
+ *   Copyright 2010-2011, Jeff Mitchell <jeff@tomahawk-player.org>
  *
  *   Tomahawk is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -31,13 +32,13 @@
 
 #include <QWidget>
 
-#include "viewpage.h"
-#include "dllmacro.h"
-#include "typedefs.h"
-#include "album.h"
-#include "query.h"
+#include "ViewPage.h"
+#include "DllMacro.h"
+#include "Typedefs.h"
+#include "Album.h"
+#include "Query.h"
 
-class AlbumModel;
+class PlayableModel;
 class PlaylistModel;
 class TreeModel;
 
@@ -61,9 +62,6 @@ public:
     virtual QString description() const { return m_description; }
     virtual QString longDescription() const { return m_longDescription; }
     virtual QPixmap pixmap() const { if ( m_pixmap.isNull() ) return Tomahawk::ViewPage::pixmap(); else return m_pixmap; }
-
-    virtual bool showStatsBar() const { return false; }
-
     virtual bool jumpToCurrentTrack() { return false; }
 
 signals:
@@ -80,7 +78,7 @@ private:
 
     Ui_SocialPlaylistWidget *ui;
     PlaylistModel* m_topForeignTracksModel;
-    AlbumModel* m_popularNewAlbumsModel;
+    PlayableModel* m_popularNewAlbumsModel;
 
     QString m_title;
     QString m_description;

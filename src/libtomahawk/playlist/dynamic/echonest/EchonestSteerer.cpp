@@ -28,10 +28,11 @@
 #include <QPropertyAnimation>
 
 #include "echonest/Playlist.h"
+#include "Source.h"
 #include "dynamic/widgets/DynamicWidget.h"
 
-#include "utils/tomahawkutils.h"
-#include "utils/logger.h"
+#include "utils/TomahawkUtils.h"
+#include "utils/Logger.h"
 
 using namespace Tomahawk;
 
@@ -64,6 +65,15 @@ EchonestSteerer::EchonestSteerer( QWidget* parent )
 //    f.setPointSize( f.pointSize() - 3 );
 //    m_steerBottom->setFont( f );
 //    m_textL->addWidget( m_steerBottom );
+
+
+    QPalette p = m_steerTop->palette();
+#ifdef Q_OS_MAC
+    p.setBrush( QPalette::WindowText, Qt::white );
+#else
+    p.setBrush( QPalette::WindowText, palette().highlightedText()  );
+#endif
+    m_steerTop->setPalette( p );
 
     m_layout->addLayout( m_textL, 1 );
 

@@ -19,12 +19,12 @@
 #ifndef TOMAHAWK_SETTINGS_GUI_H
 #define TOMAHAWK_SETTINGS_GUI_H
 
-#include "tomahawksettings.h"
+#include "TomahawkSettings.h"
 #include "AtticaManager.h"
 
 #include <QSettings>
 
-#include "dllmacro.h"
+#include "DllMacro.h"
 
 /**
  * Convenience wrapper around QSettings for tomahawk-specific config
@@ -47,6 +47,8 @@ public:
 
     void setAtticaResolverState( const QString& resolver, AtticaManager::ResolverState state );
     void removeAtticaResolverState( const QString& resolver );
+
+    static void registerCustomSettingsHandlers();
 };
 
 Q_DECLARE_METATYPE(AtticaManager::StateHash);

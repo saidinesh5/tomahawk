@@ -1,6 +1,7 @@
 /* === This file is part of Tomahawk Player - <http://tomahawk-player.org> ===
  *
  *   Copyright 2010-2011, Leo Franchi <lfranchi@kde.org>
+ *   Copyright 2010-2011, Jeff Mitchell <jeff@tomahawk-player.org>
  *
  *   Tomahawk is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -21,11 +22,11 @@
 
 #include <QWidget>
 
-#include "typedefs.h"
-#include "viewpage.h"
+#include "Typedefs.h"
+#include "ViewPage.h"
 #include "playlist/dynamic/DynamicPlaylistRevision.h"
 
-class LoadingSpinner;
+class AnimatedSpinner;
 class QShowEvent;
 class QHideEvent;
 class QSpinBox;
@@ -118,7 +119,7 @@ private:
     bool m_activePlaylist;
 
     // loading animation
-    LoadingSpinner* m_loading;
+    AnimatedSpinner* m_loading;
 
     // setup controls
     DynamicSetupWidget* m_setup;

@@ -23,9 +23,9 @@
 #include <QModelIndex>
 #include <QTimer>
 
-#include "playlist.h"
-#include "source.h"
-#include "database/databasecommand_loadallsortedplaylists.h"
+#include "Playlist.h"
+#include "Source.h"
+#include "database/DatabaseCommand_LoadAllSortedPlaylists.h"
 
 class RecentPlaylistsModel : public QAbstractListModel
 {
@@ -42,6 +42,9 @@ public slots:
 
 signals:
     void emptinessChanged( bool isEmpty );
+    
+    void loadingStarted();
+    void loadingFinished();
 
 private slots:
     void onRefresh();

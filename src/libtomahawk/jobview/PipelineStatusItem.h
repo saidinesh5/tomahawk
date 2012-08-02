@@ -20,18 +20,20 @@
 #define PIPELINESTATUSITEM_H
 
 #include "jobview/JobStatusItem.h"
-#include "query.h"
+#include "Query.h"
+
+#include <QPixmap>
 
 class PipelineStatusItem : public JobStatusItem
 {
     Q_OBJECT
 public:
-    explicit PipelineStatusItem();
+    explicit PipelineStatusItem( const Tomahawk::query_ptr& q );
     virtual ~PipelineStatusItem();
 
     virtual QString rightColumnText() const;
     virtual QString mainText() const;
-    virtual QPixmap icon() const { return m_icon; }
+    virtual QPixmap icon() const;
 
     virtual QString type() const { return "pipeline"; }
 
@@ -42,8 +44,9 @@ private slots:
     void idle();
 
 private:
-    QPixmap m_icon;
     QString m_latestQuery;
+
+    static QPixmap* s_pixmap;
 };
 
 class PipelineStatusManager : public QObject

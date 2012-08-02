@@ -19,11 +19,15 @@
 #ifndef JOBSTATUSMODEL_H
 #define JOBSTATUSMODEL_H
 
-#include "dllmacro.h"
+#include "DllMacro.h"
 
 #include <QModelIndex>
+#include <QSortFilterProxyModel>
+#include <QQueue>
 
+class QStyledItemDelegate;
 class JobStatusItem;
+
 class DLLEXPORT JobStatusModel : public QAbstractListModel
 {
     Q_OBJECT
@@ -31,7 +35,11 @@ public:
     enum JobRoles {
         // DecorationRole is icon
         // DisplayRole is main col
-        RightColumnRole = Qt::UserRole + 1
+        RightColumnRole = Qt::UserRole + 1,
+        AllowMultiLineRole = Qt::UserRole + 2,
+        JobDataRole = Qt::UserRole + 3,
+        SortRole = Qt::UserRole + 4,
+        AgeRole = Qt::UserRole + 5
     };
 
     explicit JobStatusModel( QObject* parent = 0 );
@@ -41,6 +49,12 @@ public:
     virtual QVariant data( const QModelIndex& index, int role = Qt::DisplayRole ) const;
     virtual int rowCount( const QModelIndex& parent = QModelIndex() ) const;
 
+signals:
+    void customDelegateJobInserted( int row, JobStatusItem* item );
+    void customDelegateJobRemoved( int row );
+    void refreshDelegates();
+
+public slots:
     /// Takes ownership of job
     void addJob( JobStatusItem* item );
 
@@ -51,6 +65,37 @@ private slots:
 private:
     QList< JobStatusItem* > m_items;
     QHash< QString, QList< JobStatusItem* > > m_collapseCount;
+    QHash< QString, QQueue< JobStatusItem* > > m_jobQueue;
+    QHash< QString, int > m_jobTypeCount;
+};
+
+class DLLEXPORT JobStatusSortModel : public QSortFilterProxyModel
+{
+    Q_OBJECT
+
+public:
+    JobStatusSortModel( QObject* parent = 0 );
+    virtual ~JobStatusSortModel();
+
+    void setJobModel( JobStatusModel* model );
+
+signals:
+    void checkCount();
+    void customDelegateJobInserted( int row, JobStatusItem* item );
+    void customDelegateJobRemoved( int row );
+    void refreshDelegates();
+
+public slots:
+    void addJob( JobStatusItem* item );
+    void customDelegateJobInsertedSlot( int row, JobStatusItem* item);
+    void customDelegateJobRemovedSlot( int row );
+    void refreshDelegatesSlot();
+
+protected:
+    virtual bool lessThan( const QModelIndex & left, const QModelIndex & right ) const;
+
+private:
+    JobStatusModel* m_sourceModel;
 };
 
 #endif // JOBSTATUSMODEL_H

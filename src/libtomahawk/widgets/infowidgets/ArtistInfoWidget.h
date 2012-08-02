@@ -1,6 +1,7 @@
 /* === This file is part of Tomahawk Player - <http://tomahawk-player.org> ===
  *
  *   Copyright 2010-2011, Christian Muehlhaeuser <muesli@tomahawk-player.org>
+ *   Copyright 2010-2011, Jeff Mitchell <jeff@tomahawk-player.org>
  *
  *   Tomahawk is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -31,23 +32,21 @@
 
 #include <QWidget>
 
-#include "typedefs.h"
-#include "playlistinterface.h"
-#include "viewpage.h"
-#include "infosystem/infosystem.h"
+#include "Typedefs.h"
+#include "PlaylistInterface.h"
+#include "ViewPage.h"
 
-#include "dllmacro.h"
+#include "DllMacro.h"
 
+class PlayableModel;
 class PlaylistModel;
-class TreeModel;
-class OverlayButton;
 
 namespace Ui
 {
     class ArtistInfoWidget;
 }
 
-class MetaPlaylistInterface;
+class MetaArtistInfoInterface;
 
 class DLLEXPORT ArtistInfoWidget : public QWidget, public Tomahawk::ViewPage
 {
@@ -67,6 +66,8 @@ public:
      */
     void load( const Tomahawk::artist_ptr& artist );
 
+    Tomahawk::artist_ptr artist() const { return m_artist; }
+
     virtual QWidget* widget() { return this; }
     virtual Tomahawk::playlistinterface_ptr playlistInterface() const;
 
@@ -76,7 +77,7 @@ public:
     virtual QPixmap pixmap() const { if ( m_pixmap.isNull() ) return Tomahawk::ViewPage::pixmap(); else return m_pixmap; }
 
     virtual bool isTemporaryPage() const { return true; }
-    virtual bool showStatsBar() const { return false; }
+    virtual bool showInfoBar() const { return false; }
 
     virtual bool jumpToCurrentTrack();
     virtual bool isBeingPlayed() const;
@@ -90,34 +91,29 @@ protected:
     void changeEvent( QEvent* e );
 
 private slots:
-    void setMode( Tomahawk::ModelMode mode );
-
-    void infoSystemInfo( Tomahawk::InfoSystem::InfoRequestData requestData, QVariant output );
     void onArtistImageUpdated();
+    void onBiographyLoaded();
 
-    void onModeToggle();
-    void onLoadingStarted();
-    void onLoadingFinished();
+    void onAlbumsFound( const QList<Tomahawk::album_ptr>& albums, Tomahawk::ModelMode mode );
+    void onTracksFound( const QList<Tomahawk::query_ptr>& queries, Tomahawk::ModelMode mode );
+    void onSimilarArtistsLoaded();
 
 private:
     Ui::ArtistInfoWidget *ui;
 
     Tomahawk::artist_ptr m_artist;
 
-    TreeModel* m_relatedModel;
-    TreeModel* m_albumsModel;
+    PlayableModel* m_relatedModel;
+    PlayableModel* m_albumsModel;
     PlaylistModel* m_topHitsModel;
     Tomahawk::playlistinterface_ptr m_plInterface;
-
-    OverlayButton* m_button;
 
     QString m_title;
     QString m_description;
     QString m_longDescription;
-    QString m_infoId;
     QPixmap m_pixmap;
 
-    friend class MetaPlaylistInterface;
+    friend class ::MetaArtistInfoInterface;
 };
 
 #endif // ARTISTINFOWIDGET_H

@@ -20,14 +20,16 @@
 #ifndef JOBSTATUSVIEW_H
 #define JOBSTATUSVIEW_H
 
-#include "typedefs.h"
-#include "widgets/animatedsplitter.h"
-#include "dllmacro.h"
+#include "Typedefs.h"
+#include "widgets/AnimatedSplitter.h"
+#include "DllMacro.h"
 
 class QAbstractItemModel;
 class QListView;
-class JobStatusModel;
+class JobStatusSortModel;
+class JobStatusItem;
 class StreamConnection;
+class QStyledItemDelegate;
 
 class DLLEXPORT JobStatusView : public AnimatedWidget
 {
@@ -45,17 +47,21 @@ public:
 
     QSize sizeHint() const;
 
-    void setModel( JobStatusModel* model );
+    void setModel( JobStatusSortModel* model );
 
-    JobStatusModel* model() { return m_model; }
+    JobStatusSortModel* model() { return m_model; }
 
 private slots:
     void checkCount();
+    void customDelegateJobInserted( int row, JobStatusItem* item );
+    void customDelegateJobRemoved( int row );
+    void refreshDelegates();
 
 private:
     QListView* m_view;
-    JobStatusModel* m_model;
+    JobStatusSortModel* m_model;
     AnimatedSplitter* m_parent;
+    mutable int m_cachedHeight;
 
     static JobStatusView* s_instance;
 };

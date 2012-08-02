@@ -18,7 +18,8 @@
 
 #include "ExternalResolver.h"
 
-#include "utils/logger.h"
+#include "utils/Logger.h"
+#include "Source.h"
 
 Tomahawk::ExternalResolver::ErrorState
 Tomahawk::ExternalResolver::error() const

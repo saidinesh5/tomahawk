@@ -25,9 +25,9 @@
 #include "playlist/dynamic/GeneratorInterface.h"
 #include "playlist/dynamic/GeneratorFactory.h"
 #include "playlist/dynamic/DynamicControl.h"
-#include "database/databasecommand_collectionattributes.h"
+#include "database/DatabaseCommand_CollectionAttributes.h"
 
-#include "dllmacro.h"
+#include "DllMacro.h"
 
 namespace Tomahawk
 {
@@ -77,8 +77,8 @@ public:
     virtual void startOnDemand();
     virtual void fetchNext( int rating = -1 );
     virtual QString sentenceSummary();
-    virtual bool onDemandSteerable() const { return true; }
-    virtual QWidget* steeringWidget();
+    virtual bool onDemandSteerable() const { return false; }
+    virtual QWidget* steeringWidget() { return 0; }
 
     static QStringList styles();
     static QStringList moods();
@@ -93,11 +93,6 @@ private slots:
     void staticFinished();
     void dynamicStarted();
     void dynamicFetched();
-
-    // steering controls
-    void steerField( const QString& field );
-    void steerDescription( const QString& desc );
-    void resetSteering();
 
     void doGenerate( const Echonest::DynamicPlaylist::PlaylistParams& params );
     void doStartOnDemand( const Echonest::DynamicPlaylist::PlaylistParams& params );
@@ -131,10 +126,6 @@ private:
     // used for the intermediary song id lookup
     QSet< QNetworkReply* > m_waiting;
     Echonest::DynamicPlaylist::PlaylistParams m_storedParams;
-
-    QWeakPointer<EchonestSteerer> m_steerer;
-    bool m_steeredSinceLastTrack;
-    Echonest::DynamicPlaylist::DynamicControl m_steerData;
 };
 
 };

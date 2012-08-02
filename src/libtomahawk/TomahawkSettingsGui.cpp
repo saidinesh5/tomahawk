@@ -19,31 +19,18 @@
 #include "TomahawkSettingsGui.h"
 
 #include <QDesktopServices>
-#include "settingsdialog.h"
-
-// #include <QDir>
-//
-// #include "sip/SipHandler.h"
-// #include "playlistinterface.h"
-//
-// #include "utils/logger.h"
-// #include "utils/tomahawkutils.h"
-//
-// #include "database/databasecommand_updatesearchindex.h"
-// #include "database/database.h"
-
-#define VERSION 5
+#include "SettingsDialog.h"
 
 using namespace Tomahawk;
 
 inline QDataStream& operator<<(QDataStream& out, const AtticaManager::StateHash& states)
 {
-    out <<  VERSION;
+    out <<  TOMAHAWK_SETTINGS_VERSION;
     out << (quint32)states.count();
     foreach( const QString& key, states.keys() )
     {
         AtticaManager::Resolver resolver = states[ key ];
-        out << key << resolver.version << resolver.scriptPath << (qint32)resolver.state << resolver.userRating;
+        out << key << resolver.version << resolver.scriptPath << (qint32)resolver.state << resolver.userRating << resolver.binary;
     }
     return out;
 }
@@ -51,22 +38,29 @@ inline QDataStream& operator<<(QDataStream& out, const AtticaManager::StateHash&
 
 inline QDataStream& operator>>(QDataStream& in, AtticaManager::StateHash& states)
 {
-    quint32 count = 0, version = 0;
-    in >> version;
+    quint32 count = 0, configVersion = 0;
+    in >> configVersion;
     in >> count;
     for ( uint i = 0; i < count; i++ )
     {
         QString key, version, scriptPath;
         qint32 state, userRating;
+        bool binary = false;
         in >> key;
         in >> version;
         in >> scriptPath;
         in >> state;
         in >> userRating;
-        states[ key ] = AtticaManager::Resolver( version, scriptPath, userRating, (AtticaManager::ResolverState)state );
+        if ( configVersion > 10 )
+        {
+            // V11 includes 'bool binary' flag
+            in >> binary;
+        }
+        states[ key ] = AtticaManager::Resolver( version, scriptPath, userRating, (AtticaManager::ResolverState)state, binary );
     }
     return in;
 }
+
 
 TomahawkSettingsGui*
 TomahawkSettingsGui::instanceGui()
@@ -78,8 +72,6 @@ TomahawkSettingsGui::instanceGui()
 TomahawkSettingsGui::TomahawkSettingsGui( QObject* parent )
     : TomahawkSettings( parent )
 {
-    qRegisterMetaType< AtticaManager::StateHash >( "AtticaManager::StateHash" );
-    qRegisterMetaTypeStreamOperators<AtticaManager::StateHash>("AtticaManager::StateHash");
 }
 
 
@@ -91,7 +83,7 @@ TomahawkSettingsGui::~TomahawkSettingsGui()
 QString
 TomahawkSettingsGui::storageCacheLocation() const
 {
-    return QDesktopServices::storageLocation( QDesktopServices::CacheLocation ) + "/InfoSystemCache/";
+    return QDesktopServices::storageLocation( QDesktopServices::CacheLocation );
 }
 
 
@@ -118,11 +110,13 @@ TomahawkSettingsGui::setAtticaResolverState( const QString& resolver, AtticaMana
     sync();
 }
 
+
 AtticaManager::StateHash
 TomahawkSettingsGui::atticaResolverStates() const
 {
     return value( "script/atticaresolverstates" ).value< AtticaManager::StateHash >();
 }
+
 
 void
 TomahawkSettingsGui::setAtticaResolverStates( const AtticaManager::StateHash states )
@@ -137,4 +131,12 @@ TomahawkSettingsGui::removeAtticaResolverState ( const QString& resolver )
     AtticaManager::StateHash resolvers = value( "script/atticaresolverstates" ).value< AtticaManager::StateHash >();
     resolvers.remove( resolver );
     setValue( "script/atticaresolverstates", QVariant::fromValue< AtticaManager::StateHash >( resolvers ) );
+}
+
+
+void
+TomahawkSettingsGui::registerCustomSettingsHandlers()
+{
+    qRegisterMetaType< AtticaManager::StateHash >( "AtticaManager::StateHash" );
+    qRegisterMetaTypeStreamOperators<AtticaManager::StateHash>("AtticaManager::StateHash");
 }

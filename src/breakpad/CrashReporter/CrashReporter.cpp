@@ -25,7 +25,7 @@
 #include <QDateTime>
 #include <QHttp>
 
-#include "utils/tomahawkutils.h"
+#include "utils/TomahawkUtils.h"
 
 #define LOGFILE TomahawkUtils::appLogDir().filePath( "Tomahawk.log" ).toLocal8Bit()
 #define RESPATH ":/data/"
@@ -36,7 +36,6 @@ CrashReporter::CrashReporter( const QStringList& args )
     setWindowIcon( QIcon( RESPATH "icons/tomahawk-icon-128x128.png" ) );
 
     ui.setupUi( this );
-
     ui.logoLabel->setPixmap( QPixmap( RESPATH "icons/tomahawk-icon-128x128.png" ).scaled( QSize( 55, 55 ), Qt::KeepAspectRatio, Qt::SmoothTransformation ) );
     ui.progressBar->setRange( 0, 100 );
     ui.progressBar->setValue( 0 );
@@ -51,20 +50,11 @@ CrashReporter::CrashReporter( const QStringList& args )
     ui.progressLabel->setIndent( 3 );
   #else
     ui.vboxLayout->setSpacing( 16 );
+    ui.hboxLayout1->setSpacing( 16 );
     ui.progressBar->setTextVisible( false );
     ui.progressLabel->setIndent( 1 );
     ui.bottomLabel->setDisabled( true );
     ui.bottomLabel->setIndent( 1 );
-
-    // adjust the spacer since we adjusted the spacing above
-    for ( int x = 0; x < ui.vboxLayout->count(); ++x )
-    {
-        if ( QSpacerItem* spacer = ui.vboxLayout->itemAt( x )->spacerItem() )
-        {
-            spacer->changeSize( 6, 2, QSizePolicy::Minimum, QSizePolicy::Fixed );
-            break;
-        }
-    }
   #endif //Q_WS_MAC
 
     m_http = new QHttp( "oops.tomahawk-player.org", 80, this );
@@ -76,9 +66,20 @@ CrashReporter::CrashReporter( const QStringList& args )
     m_minidump = m_dir + '/' + args.value( 2 ) + ".dmp";
     m_product_name = args.value( 3 );
 
-    setFixedSize( sizeHint() );
+    //hide until "send report" has been clicked
+    ui.progressBar->setVisible( false );
+    ui.button->setVisible( false );
+    ui.progressLabel->setVisible( false );
+    connect( ui.sendButton, SIGNAL( clicked() ), SLOT( onSendButton() ) );
 
-    QTimer::singleShot( 0, this, SLOT( send() ) );
+    adjustSize();
+    setFixedSize( size() );
+}
+
+
+CrashReporter::~CrashReporter()
+{
+    delete m_http;
 }
 
 
@@ -183,4 +184,20 @@ CrashReporter::onFail( int error, const QString& errorString )
     ui.button->setText( tr( "Close" ) );
     ui.progressLabel->setText( tr( "Failed to send crash info." ) );
     qDebug() << "Error:" << error << errorString;
+}
+
+
+void
+CrashReporter::onSendButton()
+{
+    ui.progressBar->setVisible( true );
+    ui.button->setVisible( true );
+    ui.progressLabel->setVisible( true );
+    ui.sendButton->setEnabled( false );
+    ui.dontSendButton->setEnabled( false );
+
+    adjustSize();
+    setFixedSize( size() );
+
+    QTimer::singleShot( 0, this, SLOT( send() ) );
 }

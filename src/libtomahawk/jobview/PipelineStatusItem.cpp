@@ -2,6 +2,7 @@
  *
  *   Copyright 2010-2011, Leo Franchi <lfranchi@kde.org>
  *                        Christian Muehlhaeuser <muesli@tomahawk-player.org>
+ *   Copyright 2010-2011, Jeff Mitchell <jeff@tomahawk-player.org>
  *
  *   Tomahawk is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -19,20 +20,23 @@
 
 #include "PipelineStatusItem.h"
 
-#include "utils/tomahawkutils.h"
-#include "pipeline.h"
-#include "tomahawkapp.h"
+#include "utils/TomahawkUtils.h"
+#include "Pipeline.h"
+#include "TomahawkApp.h"
 #include "JobStatusModel.h"
 #include "JobStatusView.h"
+#include "Source.h"
 
+QPixmap* PipelineStatusItem::s_pixmap = 0;
 
-PipelineStatusItem::PipelineStatusItem()
+PipelineStatusItem::PipelineStatusItem( const Tomahawk::query_ptr& q )
     : JobStatusItem()
 {
-    m_icon.load( RESPATH"images/search-icon.png" );
-
     connect( Tomahawk::Pipeline::instance(), SIGNAL( resolving( Tomahawk::query_ptr ) ), this, SLOT( resolving( Tomahawk::query_ptr ) ) );
     connect( Tomahawk::Pipeline::instance(), SIGNAL( idle() ), this, SLOT( idle() ) );
+
+    if ( !q.isNull() )
+        resolving( q );
 }
 
 
@@ -63,6 +67,18 @@ PipelineStatusItem::idle()
 }
 
 
+QPixmap
+PipelineStatusItem::icon() const
+{
+    if ( !s_pixmap )
+    {
+        s_pixmap = new QPixmap( RESPATH"images/search-icon.png" );
+    }
+
+    return *s_pixmap;
+}
+
+
 void
 PipelineStatusItem::resolving( const Tomahawk::query_ptr& query )
 {
@@ -70,6 +86,10 @@ PipelineStatusItem::resolving( const Tomahawk::query_ptr& query )
         m_latestQuery = query->fullTextQuery();
     else
         m_latestQuery = QString( "%1 - %2" ).arg( query->artist() ).arg( query->track() );
+
+    if ( m_latestQuery.isEmpty() )
+        qDebug() << "EMPTY STRING IN STATUS ITEM:" << query->fullTextQuery() << query->track() << query->artist() << query->album();
+    Q_ASSERT( !m_latestQuery.isEmpty() );
 
     emit statusChanged();
 }
@@ -85,11 +105,10 @@ PipelineStatusManager::PipelineStatusManager( QObject* parent )
 void
 PipelineStatusManager::resolving( const Tomahawk::query_ptr& p )
 {
-    Q_UNUSED( p );
     if ( m_curItem.isNull() )
     {
         // No current query item and we're resolving something, so show it
-        m_curItem = QWeakPointer< PipelineStatusItem >( new PipelineStatusItem );
+        m_curItem = QWeakPointer< PipelineStatusItem >( new PipelineStatusItem( p ) );
         JobStatusView::instance()->model()->addJob( m_curItem.data() );
     }
 }

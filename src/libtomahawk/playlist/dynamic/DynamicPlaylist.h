@@ -1,6 +1,7 @@
 /* === This file is part of Tomahawk Player - <http://tomahawk-player.org> ===
  *
  *   Copyright 2010-2011, Leo Franchi <lfranchi@kde.org>
+ *   Copyright 2010-2011, Jeff Mitchell <jeff@tomahawk-player.org>
  *
  *   Tomahawk is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -23,12 +24,12 @@
 #include <QList>
 #include <QSharedPointer>
 
-#include "typedefs.h"
-#include "playlist.h"
+#include "Typedefs.h"
+#include "Playlist.h"
 #include "playlist/dynamic/DynamicControl.h"
 #include "playlist/dynamic/DynamicPlaylistRevision.h"
 
-#include "dllmacro.h"
+#include "DllMacro.h"
 
 class DatabaseCommand_LoadAllDynamicPlaylists;
 class DatabaseCommand_SetDynamicPlaylistRevision;

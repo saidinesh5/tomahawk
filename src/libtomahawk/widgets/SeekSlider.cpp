@@ -1,6 +1,7 @@
 /* === This file is part of Tomahawk Player - <http://tomahawk-player.org> ===
  *
  *   Copyright 2010-2011, Christian Muehlhaeuser <muesli@tomahawk-player.org>
+ *   Copyright 2010-2011, Jeff Mitchell <jeff@tomahawk-player.org>
  *
  *   Tomahawk is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -21,8 +22,8 @@
 #include <QtGui/QMouseEvent>
 #include <QtCore/QTimeLine>
 
-#include "utils/tomahawkutils.h"
-#include "utils/logger.h"
+#include "utils/TomahawkUtils.h"
+#include "utils/Logger.h"
 
 
 SeekSlider::SeekSlider( QWidget* parent )
@@ -30,7 +31,7 @@ SeekSlider::SeekSlider( QWidget* parent )
     , m_timeLine( 0 )
 {
     setFixedHeight( 20 );
-    setStyleSheet( "QSlider::groove::horizontal {"
+    setStyleSheet( "QSlider::groove:horizontal {"
                    "margin: 5px; border-width: 3px;"
                    "border-image: url(" RESPATH "images/seek-slider-bkg.png) 3 3 3 3 stretch stretch;"
                    "}"
@@ -40,7 +41,7 @@ SeekSlider::SeekSlider( QWidget* parent )
                    "border-image: url(" RESPATH "images/seek-slider-level.png) 3 3 3 3 stretch stretch;"
                    "}"
 
-                   "QSlider::handle::horizontal {"
+                   "QSlider::handle:horizontal {"
                    "margin-bottom: -7px; margin-top: -7px;"
                    "margin-left: -4px; margin-right: -4px;"
                    "height: 17px; width: 16px;"
@@ -71,19 +72,15 @@ SeekSlider::mousePressEvent( QMouseEvent* event )
 void
 SeekSlider::setValue( int value )
 {
-    int newVal = value;
-    if ( value > maximum() )
-        newVal = maximum();
-    if ( value < minimum() )
-        newVal = minimum();
+//    int newVal = qBound( minimum(), value, maximum() );
     
     if ( !m_timeLine || sender() != m_timeLine ) 
     {
-        QSlider::setValue( newVal );
+        QSlider::setValue( value );
         return;
     }
 
     blockSignals( true );
-    QSlider::setValue( newVal );
+    QSlider::setValue( value );
     blockSignals( false );
 }

@@ -29,11 +29,10 @@
 #include "context/pages/TopTracksContext.h"
 #include "context/pages/WikipediaContext.h"
 
-#include "playlist/artistview.h"
-#include "playlist/treemodel.h"
+#include "Source.h"
 
-#include "utils/stylehelper.h"
-#include "utils/tomahawkutilsgui.h"
+#include "utils/StyleHelper.h"
+#include "utils/TomahawkUtilsGui.h"
 
 #define ANIMATION_TIME 450
 #define SLIDE_TIME 350
@@ -76,7 +75,7 @@ ContextWidget::ContextWidget( QWidget* parent )
 
     ui->contextView->setScene( m_scene );
     ui->contextView->setFrameShape( QFrame::NoFrame );
-    ui->contextView->setStyleSheet( "background: transparent" );
+    ui->contextView->setStyleSheet( "QGraphicsView { background: transparent; }" );
     ui->contextView->setAttribute( Qt::WA_MacShowFocusRect, 0 );
     ui->contextView->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Expanding );
 
@@ -96,7 +95,7 @@ ContextWidget::ContextWidget( QWidget* parent )
 
     ensurePolished();
     QPalette pal = palette();
-    pal.setBrush( QPalette::Window, StyleHelper::headerLowerColor() );
+    pal.setBrush( QPalette::Window, QColor( "#454e59" ) );
     setPalette( pal );
 
     connect( ui->toggleButton, SIGNAL( clicked() ), SLOT( toggleSize() ) );

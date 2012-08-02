@@ -1,6 +1,7 @@
 /* === This file is part of Tomahawk Player - <http://tomahawk-player.org> ===
  *
  *   Copyright 2010-2011, Leo Franchi <lfranchi@kde.org>
+ *   Copyright 2010-2012, Jeff Mitchell <jeff@tomahawk-player.org>
  *
  *   Tomahawk is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -18,14 +19,14 @@
 
 #include "LatchManager.h"
 
-#include "actioncollection.h"
-#include "audio/audioengine.h"
-#include "database/database.h"
+#include "ActionCollection.h"
+#include "audio/AudioEngine.h"
+#include "database/Database.h"
 
 #include <QtGui/QAction>
-#include "sourcelist.h"
-#include "database/databasecommand_socialaction.h"
-#include "sourceplaylistinterface.h"
+#include "SourceList.h"
+#include "database/DatabaseCommand_SocialAction.h"
+#include "SourcePlaylistInterface.h"
 
 using namespace Tomahawk;
 
@@ -84,7 +85,7 @@ LatchManager::playlistChanged( Tomahawk::playlistinterface_ptr )
         QAction *latchOnAction = ActionCollection::instance()->getAction( "latchOn" );
         latchOnAction->setText( tr( "&Catch Up" ) );
         latchOnAction->setIcon( QIcon() );
-        
+
         // If not, then keep waiting
         return;
     }
@@ -151,7 +152,7 @@ LatchManager::latchModeChangeRequest( const Tomahawk::source_ptr& source, bool r
     if ( !isLatched( source ) )
         return;
 
-    source->playlistInterface()->setLatchMode( realtime ? Tomahawk::PlaylistInterface::RealTime : Tomahawk::PlaylistInterface::StayOnSong );
+    source->playlistInterface()->setLatchMode( realtime ? Tomahawk::PlaylistModes::RealTime : Tomahawk::PlaylistModes::StayOnSong );
     if ( realtime )
         catchUpRequest();
 }

@@ -26,7 +26,9 @@
 #include <QtGui/QIcon>
 #include <QtGui/QWidget>
 #include <QUiLoader>
-#include "utils/logger.h"
+#include "utils/Logger.h"
+
+#include "Source.h"
 
 Tomahawk::ExternalResolverGui::ExternalResolverGui(const QString& filePath)
     : Tomahawk::ExternalResolver(filePath)

@@ -1,6 +1,8 @@
 /* === This file is part of Tomahawk Player - <http://tomahawk-player.org> ===
  *
  *   Copyright 2010-2011, Christian Muehlhaeuser <muesli@tomahawk-player.org>
+ *   Copyright 2010-2011, Jeff Mitchell <jeff@tomahawk-player.org>
+ *   Copyright 2010-2011, Leo Franchi <lfranchi@kde.org>
  *
  *   Tomahawk is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -30,16 +32,16 @@
 
 #include <QtGui/QWidget>
 
-#include "playlistinterface.h"
-#include "viewpage.h"
-#include "infosystem/infosystem.h"
+#include "PlaylistInterface.h"
+#include "ViewPage.h"
+#include "infosystem/InfoSystem.h"
 
-#include "dllmacro.h"
-#include "typedefs.h"
+#include "DllMacro.h"
+#include "Typedefs.h"
 
-class AlbumModel;
+class PlayableModel;
 class TreeModel;
-class OverlayButton;
+class MetaAlbumInfoInterface;
 
 namespace Ui
 {
@@ -51,8 +53,10 @@ class DLLEXPORT AlbumInfoWidget : public QWidget, public Tomahawk::ViewPage
 Q_OBJECT
 
 public:
-    AlbumInfoWidget( const Tomahawk::album_ptr& album, Tomahawk::ModelMode startingMode = Tomahawk::InfoSystemMode, QWidget* parent = 0 );
+    AlbumInfoWidget( const Tomahawk::album_ptr& album, QWidget* parent = 0 );
     ~AlbumInfoWidget();
+
+    Tomahawk::album_ptr album() const { return m_album; }
 
     virtual QWidget* widget() { return this; }
     virtual Tomahawk::playlistinterface_ptr playlistInterface() const;
@@ -65,14 +69,11 @@ public:
     virtual QPixmap pixmap() const { if ( m_pixmap.isNull() ) return Tomahawk::ViewPage::pixmap(); else return m_pixmap; }
 
     virtual bool isTemporaryPage() const { return true; }
-    virtual bool showStatsBar() const { return false; }
-
-    virtual bool jumpToCurrentTrack() { return false; }
     virtual bool isBeingPlayed() const;
 
-public slots:
-    void setMode( Tomahawk::ModelMode mode );
+    virtual bool jumpToCurrentTrack();
 
+public slots:
     /** \brief Loads information for a given album.
      *  \param album The album that you want to load information for.
      *
@@ -96,31 +97,22 @@ private slots:
     void gotAlbums( const QList<Tomahawk::album_ptr>& albums );
     void onAlbumCoverUpdated();
 
-    void infoSystemInfo( Tomahawk::InfoSystem::InfoRequestData requestData, QVariant output );
-
-    void onModeToggle();
-    void onAlbumsModeToggle();
-
-    void onLoadingStarted();
-    void onLoadingFinished();
-
 private:
-    Ui::AlbumInfoWidget *ui;
+    Ui::AlbumInfoWidget* ui;
 
     Tomahawk::album_ptr m_album;
 
-    AlbumModel* m_albumsModel;
+    PlayableModel* m_albumsModel;
     TreeModel* m_tracksModel;
 
-    OverlayButton* m_button;
-    OverlayButton* m_buttonAlbums;
+    Tomahawk::playlistinterface_ptr m_playlistInterface;
 
     QString m_title;
     QString m_description;
     QString m_longDescription;
     QPixmap m_pixmap;
 
-    QString m_infoId;
+    friend class MetaAlbumInfoInterface;
 };
 
 #endif // ALBUMINFOWIDGET_H

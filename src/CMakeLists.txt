@@ -13,8 +13,6 @@ SET( QT_USE_QTNETWORK TRUE )
 SET( QT_USE_QTXML TRUE )
 SET( QT_USE_QTWEBKIT TRUE )
 
-add_definitions( -DQT_SHAREDPOINTER_TRACK_POINTERS )
-
 INCLUDE( ${QT_USE_FILE} )
 INCLUDE( AddAppIconMacro )
 
@@ -37,121 +35,65 @@ ENDIF()
 #ENDFOREACH( moddir )
 
 SET( tomahawkSources ${tomahawkSources}
-     web/api_v1.cpp
+     web/Api_v1.cpp
 
-     musicscanner.cpp
-     shortcuthandler.cpp
-     scanmanager.cpp
-     ubuntuunityhack.cpp
-     tomahawkapp.cpp
+     AclRegistryImpl.cpp
+     ShortcutHandler.cpp
+     UbuntuUnityHack.cpp
+     TomahawkApp.cpp
      main.cpp
 )
 
 IF(LIBLASTFM_FOUND)
     SET(tomahawkSources ${tomahawkSources}
-        scrobbler.cpp
+        Scrobbler.cpp
     )
 ENDIF(LIBLASTFM_FOUND)
 
 SET( tomahawkSourcesGui ${tomahawkSourcesGui}
-     sourcetree/sourcesmodel.cpp
-     sourcetree/sourcesproxymodel.cpp
-     sourcetree/sourcetreeview.cpp
-     sourcetree/sourcedelegate.cpp
-     sourcetree/animationhelper.cpp
-     sourcetree/items/sourcetreeitem.cpp
-     sourcetree/items/sourceitem.cpp
-     sourcetree/items/playlistitems.cpp
-     sourcetree/items/categoryitems.cpp
-     sourcetree/items/genericpageitems.cpp
-     sourcetree/items/temporarypageitem.cpp
-     sourcetree/items/groupitem.cpp
-     sourcetree/items/historyitem.cpp
+     sourcetree/SourcesModel.cpp
+     sourcetree/SourcesProxyModel.cpp
+     sourcetree/SourceTreeView.cpp
+     sourcetree/SourceDelegate.cpp
+     sourcetree/AnimationHelper.cpp
+     sourcetree/items/SourceTreeItem.cpp
+     sourcetree/items/SourceItem.cpp
+     sourcetree/items/PlaylistItems.cpp
+     sourcetree/items/CategoryItems.cpp
+     sourcetree/items/GenericPageItems.cpp
+     sourcetree/items/LovedTracksItem.cpp
+     sourcetree/items/TemporaryPageItem.cpp
+     sourcetree/items/GroupItem.cpp
+     sourcetree/items/HistoryItem.cpp
 
-     breakpad/BreakPad.cpp
-
-     tomahawktrayicon.cpp
-     audiocontrols.cpp
-     settingsdialog.cpp
-     diagnosticsdialog.cpp
-     configdelegatebase.cpp
-     sipconfigdelegate.cpp
-     resolverconfigdelegate.cpp
-     settingslistdelegate.cpp
-     resolversmodel.cpp
-     tomahawkwindow.cpp
+     TomahawkTrayIcon.cpp
+     AudioControls.cpp
+     SettingsDialog.cpp
+     DiagnosticsDialog.cpp
+     SettingsListDelegate.cpp
+     TomahawkWindow.cpp
      LoadXSPFDialog.cpp
+     SocialWidget.cpp
 )
 
-SET( tomahawkHeaders ${tomahawkHeaders}
-     tomahawkapp.h
-
-     web/api_v1.h
-
-     musicscanner.h
-     scanmanager.h
-     ubuntuunityhack.h
-     shortcuthandler.h
-)
-
-IF(LIBLASTFM_FOUND)
-    SET(tomahawkHeaders ${tomahawkHeaders}
-        scrobbler.h
-    )
-ENDIF(LIBLASTFM_FOUND)
-
-IF(LIBATTICA_FOUND)
-    SET( tomahawkSourcesGui ${tomahawkSourcesGui} GetNewStuffDialog.cpp GetNewStuffDelegate.cpp GetNewStuffModel.cpp )
-    SET( tomahawkHeadersGui ${tomahawkHeadersGui} GetNewStuffDialog.h GetNewStuffDelegate.h GetNewStuffModel.h )
-    INCLUDE_DIRECTORIES( ${LIBATTICA_INCLUDE_DIR} )
-ENDIF(LIBATTICA_FOUND)
-
-
-SET( tomahawkHeadersGui ${tomahawkHeadersGui}
-     sourcetree/sourcesmodel.h
-     sourcetree/sourcesproxymodel.h
-     sourcetree/sourcetreeview.h
-     sourcetree/sourcedelegate.h
-     sourcetree/animationhelper.h
-     sourcetree/items/sourcetreeitem.h
-     sourcetree/items/sourceitem.h
-     sourcetree/items/playlistitems.h
-     sourcetree/items/categoryitems.h
-     sourcetree/items/genericpageitems.h
-     sourcetree/items/temporarypageitem.h
-     sourcetree/items/groupitem.h
-     sourcetree/items/historyitem.h
-
-     tomahawktrayicon.h
-     audiocontrols.h
-     settingsdialog.h
-     diagnosticsdialog.h
-     configdelegatebase.h
-     resolverconfigdelegate.h
-     sipconfigdelegate.h
-     settingslistdelegate.h
-     resolversmodel.h
-     delegateconfigwrapper.h
-     tomahawkwindow.h
-     LoadXSPFDialog.h
-)
+IF( WITH_BREAKPAD )
+    LIST(APPEND tomahawkSourcesGui breakpad/BreakPad.cpp)
+ENDIF()
 
 SET( tomahawkUI ${tomahawkUI}
-     tomahawkwindow.ui
-     diagnosticsdialog.ui
-     stackedsettingsdialog.ui
-     proxydialog.ui
+     TomahawkWindow.ui
+     DiagnosticsDialog.ui
+     StackedSettingsDialog.ui
+     ProxyDialog.ui
 
-     audiocontrols.ui
-
-     GetNewStuffDialog.ui
+     AudioControls.ui
      LoadXSPFDialog.ui
+     SocialWidget.ui
 )
 
 INCLUDE_DIRECTORIES(
     .
     ${CMAKE_CURRENT_BINARY_DIR}
-    ${CMAKE_BINARY_DIR}/thirdparty/liblastfm2/src
 
     audio
     database
@@ -159,7 +101,6 @@ INCLUDE_DIRECTORIES(
     network
     sourcetree
     topbar
-    utils
     libtomahawk
     mac
 
@@ -171,8 +112,10 @@ INCLUDE_DIRECTORIES(
     ${TAGLIB_INCLUDES}
     ${PHONON_INCLUDES}
     ${QJSON_INCLUDE_DIR}
-    ${LIBECHONEST_INCLUDE_DIR}
-    ${LIBECHONEST_INCLUDE_DIR}/..
+    ${LIBATTICA_INCLUDE_DIR}
+    ${ECHONEST_INCLUDE_DIR}
+    ${LIBLASTFM_INCLUDE_DIRS}
+    ${LIBLASTFM_INCLUDE_DIRS}/..
 )
 
 SET( OS_SPECIFIC_LINK_LIBRARIES "" )
@@ -185,44 +128,42 @@ IF( UNIX )
 ENDIF( UNIX )
 
 IF( APPLE )
+    SET( CMAKE_LINKER_FLAGS "-headerpad_max_install_names ${CMAKE_LINKER_FLAGS}" )
+
     INCLUDE_DIRECTORIES( ${CMAKE_SOURCE_DIR}/thirdparty/SPMediaKeyTap )
 
-    SET( tomahawkHeaders ${tomahawkHeaders} mac/tomahawkapp_mac.h mac/macshortcuthandler.h )
-    SET( tomahawkSources ${tomahawkSources} mac/tomahawkapp_mac.mm mac/macshortcuthandler.cpp )
-
-    IF(HAVE_SPARKLE)
-        SET( tomahawkHeaders ${tomahawkHeaders} ${SPARKLE}/Headers )
-    ENDIF(HAVE_SPARKLE)
+    SET( tomahawkSources ${tomahawkSources} mac/TomahawkApp_Mac.mm mac/MacShortcutHandler.cpp )
 ENDIF( APPLE )
 
-IF(GLOOX_FOUND)
-  INCLUDE_DIRECTORIES( ${GLOOX_INCLUDE_DIR} )
-  SET( tomahawkHeaders ${tomahawkHeaders} xmppbot/xmppbot.h )
-  SET( tomahawkSources ${tomahawkSources} xmppbot/xmppbot.cpp )
-ENDIF(GLOOX_FOUND)
-ADD_SUBDIRECTORY( sip )
+ADD_SUBDIRECTORY( accounts )
+ADD_SUBDIRECTORY( infoplugins )
 
 IF(QCA2_FOUND)
     INCLUDE_DIRECTORIES( ${QCA2_INCLUDE_DIR} )
 ENDIF(QCA2_FOUND)
 
 INCLUDE(GNUInstallDirs)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Config.h.in
                ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 
+# translations
 include( ${CMAKE_SOURCE_DIR}/lang/translations.cmake )
+add_tomahawk_translations(ar bg ca de en es fr ja pl pt_BR ru sv tr zh_CN zh_TW)
 
-SET( final_src ${final_src} ${tomahawkMoc} ${tomahawkSources} ${tomahawkHeaders} ${trans_outfile})
+SET( final_src ${final_src} ${tomahawkMoc} ${tomahawkSources} ${trans_outfile})
 
 IF( BUILD_GUI )
-    LIST(APPEND tomahawkHeaders ${tomahawkHeadersGui})
     LIST(APPEND tomahawkSources ${tomahawkSourcesGui})
     qt4_wrap_ui( tomahawkUI_H ${tomahawkUI} )
+
+    IF( WITH_CRASHREPORTER )
+        ADD_SUBDIRECTORY( breakpad/CrashReporter )
+    ENDIF()
 ENDIF()
 
 kde4_add_app_icon( tomahawkSources "${CMAKE_SOURCE_DIR}/data/icons/tomahawk-icon-*.png" )
 qt4_add_resources( RC_SRCS "../resources.qrc" )
-qt4_wrap_cpp( tomahawkMoc ${tomahawkHeaders} )
+
 SET( final_src ${final_src} ${tomahawkUI_H} ${tomahawkMoc} ${tomahawkSources} ${RC_SRCS} )
 
 IF( UNIX AND NOT APPLE )
@@ -230,35 +171,35 @@ IF( UNIX AND NOT APPLE )
 ENDIF( UNIX AND NOT APPLE )
 IF( APPLE )
     ADD_EXECUTABLE( tomahawk MACOSX_BUNDLE ${final_src} )
-    SET_TARGET_PROPERTIES(tomahawk PROPERTIES MACOSX_BUNDLE_INFO_PLIST "${CMAKE_BINARY_DIR}/Info.plist"
-)
+    SET_TARGET_PROPERTIES(tomahawk PROPERTIES MACOSX_BUNDLE_INFO_PLIST "${CMAKE_BINARY_DIR}/Info.plist")
 ENDIF( APPLE )
 IF( WIN32 )
     ADD_EXECUTABLE( tomahawk WIN32 ${final_src} )
 ENDIF( WIN32 )
 
+SET_TARGET_PROPERTIES(tomahawk PROPERTIES AUTOMOC TRUE)
+
 MESSAGE( STATUS "OS_SPECIFIC_LINK_LIBRARIES: ${OS_SPECIFIC_LINK_LIBRARIES}" )
 
 SET(LINK_LIBRARIES  "")
 IF(LIBLASTFM_FOUND)
-    SET(LINK_LIBRARIES ${LINK_LIBRARIES} tomahawk_lastfm2 )
+    SET( LINK_LIBRARIES ${LINK_LIBRARIES} ${LIBLASTFM_LIBRARIES} )
 ENDIF(LIBLASTFM_FOUND)
-IF(GLOOX_FOUND)
-    SET(LINK_LIBRARIES ${LINK_LIBRARIES} ${GLOOX_LIBRARIES} )
-ENDIF(GLOOX_FOUND)
 IF(QCA2_FOUND)
-    SET(LINK_LIBRARIES ${LINK_LIBRARIES} ${QCA2_LIBRARIES} )
+    SET( LINK_LIBRARIES ${LINK_LIBRARIES} ${QCA2_LIBRARIES} )
 ENDIF(QCA2_FOUND)
+IF(WITH_BREAKPAD)
+    SET( LINK_LIBRARIES ${LINK_LIBRARIES} tomahawk_breakpad )
+ENDIF()
 
 TARGET_LINK_LIBRARIES( tomahawk
-    tomahawk_breakpad
     ${LINK_LIBRARIES}
     ${TOMAHAWK_LIBRARIES}
     ${PHONON_LIBS}
     ${OS_SPECIFIC_LINK_LIBRARIES}
     ${QT_LIBRARIES}
     ${MAC_EXTRA_LIBS}
-    ${LIBECHONEST_LIBRARY}
+    ${ECHONEST_LIBRARIES}
     ${QXTWEB_LIBRARIES}
     ${QJSON_LIBRARIES}
     ${TAGLIB_LIBRARIES}

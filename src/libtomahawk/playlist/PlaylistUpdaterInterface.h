@@ -19,62 +19,113 @@
 #ifndef PLAYLISTUPDATERINTERFACE_H
 #define PLAYLISTUPDATERINTERFACE_H
 
-#include "dllmacro.h"
-#include "typedefs.h"
-#include "playlist.h"
+#include "DllMacro.h"
+#include "Typedefs.h"
+#include "Playlist.h"
+
 #include <QTimer>
+#include <QMutex>
+#include <QPair>
+
+#ifndef ENABLE_HEADLESS
+#include <QPixmap>
+#endif
 
 namespace Tomahawk
 {
 /**
-  * If a playlist needs periodic updating, implement a updater interface.
+  * PlaylistUpdaters are attached to playlists. They usually manipulate the playlist in some way
+  * due to external input (spotify syncing) or timers (xspf updating)
   *
-  * Default is auto-updating.
+  * Updaters have 2 modes of operation: syncing and subscribing. Syncing implies two-way sync, that is, this
+  * playlist is reproduced on some other service (e.g. spotify or rdio).
+  *
+  * Subscribing implies the playlist is being updated periodically with changes from some source, and the user
+  * is working with a copy: e.g. an xspf updater or a spotify subscribed playlist.
   */
+
+class PlaylistUpdaterFactory;
+
+// used when loading/saving from settings
+
 
 class DLLEXPORT PlaylistUpdaterInterface : public QObject
 {
     Q_OBJECT
 public:
-    PlaylistUpdaterInterface( const playlist_ptr& pl );
-    PlaylistUpdaterInterface( const playlist_ptr& pl, int interval, bool autoUpdate );
+    explicit PlaylistUpdaterInterface( const playlist_ptr& pl );
 
-    virtual ~PlaylistUpdaterInterface(){}
+    virtual ~PlaylistUpdaterInterface();
 
     // What type you are. If you add a new updater, add the creation code as well.
     virtual QString type() const = 0;
 
-    bool autoUpdate() const { return m_autoUpdate; }
-    void setAutoUpdate( bool autoUpdate );
+#ifndef ENABLE_HEADLESS
+    // Small widget to show in playlist header that configures the updater
+    virtual QWidget* configurationWidget() const = 0;
 
-    void setInterval( int intervalMsecs ) ;
-    int intervalMsecs() const { return m_timer->interval(); }
+    // Small overlay over playlist icon in the sidebar to indicate that it has this updater type
+    // Should be around 16x16 or something
+    virtual QPixmap typeIcon() const { return QPixmap(); }
+#endif
 
     void remove();
 
     playlist_ptr playlist() const { return m_playlist; }
 
-    /// If you want to try to load a updater from the settings. Returns a valid
-    /// updater if one was saved
-    static PlaylistUpdaterInterface* loadForPlaylist( const playlist_ptr& pl );
+    /// If you want to try to load updaters for a playlist
+    static void loadForPlaylist( const playlist_ptr& pl );
+
+    static void registerUpdaterFactory( PlaylistUpdaterFactory* f );
+
+    virtual bool sync() const { return false; }
+    virtual void setSync( bool ) {}
+
+    virtual bool canSubscribe() const { return false; }
+    virtual bool subscribed() const { return false; }
+    virtual void setSubscribed( bool ) {}
+
+    // The int data value associated with each question must be unique across *all* playlist updaters,
+    // as setQuestionResults is called with all questions from all updaters.
+    virtual bool hasCustomDeleter() const { return false; }
+    virtual PlaylistDeleteQuestions deleteQuestions() const { return PlaylistDeleteQuestions(); }
+    virtual void setQuestionResults( const QMap< int, bool > ) {}
+
+signals:
+    void changed();
 
 public slots:
     virtual void updateNow() {}
 
-private slots:
-    void doSave();
+    void save();
 
 protected:
-    virtual void loadFromSettings( const QString& group ) = 0;
-    virtual void saveToSettings( const QString& group ) const = 0;
-    virtual void removeFromSettings( const QString& group ) const = 0;
+    virtual void aboutToDelete() {}
+
+    QVariantHash settings() const;
+    void saveSettings( const QVariantHash& settings );
 
 private:
-    QTimer* m_timer;
-    bool m_autoUpdate;
     playlist_ptr m_playlist;
+    QVariantHash m_extraData;
+
+    static QMap< QString, PlaylistUpdaterFactory* > s_factories;
+};
+
+
+class DLLEXPORT PlaylistUpdaterFactory
+{
+public:
+    PlaylistUpdaterFactory() {}
+    virtual ~PlaylistUpdaterFactory() {}
+
+    virtual QString type() const = 0;
+    virtual PlaylistUpdaterInterface* create( const playlist_ptr&, const QVariantHash& settings ) = 0;
 };
 
 }
+
+Q_DECLARE_METATYPE( Tomahawk::SerializedUpdater );
+Q_DECLARE_METATYPE( Tomahawk::SerializedUpdaters );
 
 #endif // PLAYLISTUPDATERINTERFACE_H

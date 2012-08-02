@@ -19,15 +19,15 @@
 
 #include "RecentPlaylistsModel.h"
 
-#include "tomahawksettings.h"
-#include "audio/audioengine.h"
-#include "sourcelist.h"
-#include "utils/logger.h"
+#include "TomahawkSettings.h"
+#include "audio/AudioEngine.h"
+#include "SourceList.h"
+#include "utils/Logger.h"
 #include "dynamic/DynamicPlaylist.h"
-#include "database/database.h"
-#include "database/databasecommand_loadallsortedplaylists.h"
+#include "database/Database.h"
+#include "database/DatabaseCommand_LoadAllSortedPlaylists.h"
 #include "RecentlyPlayedPlaylistsModel.h"
-#include <network/servent.h>
+#include <network/Servent.h>
 
 #define REFRESH_TIMEOUT 1000
 
@@ -63,6 +63,8 @@ RecentPlaylistsModel::onRefresh()
     if ( m_timer->isActive() )
         m_timer->stop();
 
+    emit loadingStarted();
+   
     DatabaseCommand_LoadAllSortedPlaylists* cmd = new DatabaseCommand_LoadAllSortedPlaylists( source_ptr() );
     cmd->setLimit( 15 );
     cmd->setSortOrder( DatabaseCommand_LoadAllPlaylists::ModificationTime );
@@ -117,6 +119,7 @@ RecentPlaylistsModel::playlistsLoaded( const QList<DatabaseCommand_LoadAllSorted
     endResetModel();
 
     emit emptinessChanged( m_playlists.isEmpty() );
+    emit loadingFinished();
 }
 
 
@@ -191,6 +194,9 @@ RecentPlaylistsModel::updatePlaylist()
 
     for ( int i = 0; i < m_playlists.size(); i++ )
     {
+        if ( m_playlists[ i ].isNull() )
+            continue;
+
         if ( m_playlists[ i ]->guid() == p->guid() )
         {
             QModelIndex idx = index( i, 0, QModelIndex() );

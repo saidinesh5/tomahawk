@@ -20,7 +20,10 @@
 #define JOB_STATUS_ITEM
 
 #include <QObject>
-#include <QPixmap>
+#include <QMetaType>
+
+class QStyledItemDelegate;
+class QPixmap;
 
 /**
  * Implement your own JobStatusItem if you want to add some sort of job status entry in the JobStatusView.
@@ -37,10 +40,11 @@ class JobStatusItem : public QObject
 {
     Q_OBJECT
 public:
-    explicit JobStatusItem() : QObject() {}
-    virtual ~JobStatusItem() {}
+    explicit JobStatusItem();
+    virtual ~JobStatusItem();
 
     virtual QString type() const = 0;
+    virtual int weight() const { return 0; }
 
     /// Please cache this.
     virtual QPixmap icon() const = 0;
@@ -52,14 +56,27 @@ public:
      * instead of showing each individually. In this case, the right column from the item will be ignored
      * and a count will be shown instead.
      */
-    virtual bool collapseItem() const { return false; }
+    virtual bool collapseItem() const;
+    virtual bool allowMultiLine() const;
 
+    virtual int concurrentJobLimit() const;
+
+    virtual bool hasCustomDelegate() const;
+    virtual void createDelegate( QObject* parent );
+    virtual QStyledItemDelegate* customDelegate() const;
+
+    qint64 age() const { return m_createdOn; }
 signals:
     /// Ask for an update
     void statusChanged();
 
     /// Job is finished, will be deleted by the model
     void finished();
+
+private:
+    qint64 m_createdOn;
 };
+
+Q_DECLARE_METATYPE( JobStatusItem* );
 
 #endif

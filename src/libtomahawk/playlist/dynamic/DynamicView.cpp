@@ -1,6 +1,7 @@
 /* === This file is part of Tomahawk Player - <http://tomahawk-player.org> ===
  *
- *   Copyright 2010-2011, Christian Muehlhaeuser <muesli@tomahawk-player.org>
+ *   Copyright 2010-2011, Leo Franchi <lfranchi@kde.org>
+ *   Copyright 2010-2011, Jeff Mitchell <jeff@tomahawk-player.org>
  *
  *   Tomahawk is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -24,12 +25,12 @@
 #include <QPaintEngine>
 #include <QScrollBar>
 
-#include "playlistmodel.h"
-#include "trackproxymodel.h"
-#include "trackheader.h"
+#include "PlaylistModel.h"
+#include "PlayableProxyModel.h"
 #include "DynamicModel.h"
-#include "widgets/overlaywidget.h"
-#include "utils/logger.h"
+#include "widgets/OverlayWidget.h"
+#include "utils/Logger.h"
+#include "Source.h"
 
 using namespace Tomahawk;
 
@@ -47,10 +48,6 @@ DynamicView::DynamicView( QWidget* parent )
         , m_fadebg( false )
         , m_fadeOnly( false )
 {
-    setContentsMargins( 0, 0, 0, 0 );
-    setFrameShape( QFrame::NoFrame );
-    setAttribute( Qt::WA_MacShowFocusRect, 0 );
-
     m_fadeOutAnim.setDuration( FADE_LENGTH );
     m_fadeOutAnim.setCurveShape( QTimeLine::LinearCurve );
     m_fadeOutAnim.setFrameRange( 100, 0 );
@@ -69,18 +66,17 @@ DynamicView::DynamicView( QWidget* parent )
 
 DynamicView::~DynamicView()
 {
-
 }
 
 
 void
-DynamicView::setDynamicModel( DynamicModel* model)
+DynamicView::setDynamicModel( DynamicModel* model )
 {
     m_model = model;
     PlaylistView::setPlaylistModel( m_model );
 
     connect( m_model, SIGNAL( trackCountChanged( unsigned int ) ), SLOT( onTrackCountChanged( unsigned int ) ) );
-    connect( m_model, SIGNAL( checkForOverflow() ), this, SLOT( checkForOverflow() ) );
+    connect( m_model, SIGNAL( checkForOverflow() ), SLOT( checkForOverflow() ) );
 }
 
 
@@ -264,7 +260,7 @@ DynamicView::collapseEntries( int startRow, int num, int numToKeep )
             todel << proxyModel()->index( startRow + i, k );
         }
     }
-    proxyModel()->remove( todel );
+    proxyModel()->removeIndexes( todel );
 }
 
 

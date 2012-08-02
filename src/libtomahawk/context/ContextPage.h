@@ -1,6 +1,7 @@
 /* === This file is part of Tomahawk Player - <http://tomahawk-player.org> ===
  *
  *   Copyright 2010-2011, Christian Muehlhaeuser <muesli@tomahawk-player.org>
+ *   Copyright 2010-2011, Jeff Mitchell <jeff@tomahawk-player.org>
  *
  *   Tomahawk is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -23,10 +24,10 @@
 #include <QGraphicsWebView>
 #include <QStyleOptionGraphicsItem>
 
-#include "typedefs.h"
-#include "utils/tomahawkutils.h"
+#include "Typedefs.h"
+#include "utils/TomahawkUtils.h"
 
-#include "dllmacro.h"
+#include "DllMacro.h"
 #include <signal.h>
 
 class PlaylistInterface;
