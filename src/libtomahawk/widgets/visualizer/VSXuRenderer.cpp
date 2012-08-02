@@ -25,10 +25,10 @@
 
 #include <GL/glu.h>
 #include "VSXuRenderer.h"
-#include "VSXuWidget.h"
+#include "VisualizerWidget.h"
 #include "utils/TomahawkUtils.h"
 
-VSXuRenderer::VSXuRenderer(VSXuWidget* parent):
+VSXuRenderer::VSXuRenderer(VisualizerWidget* parent):
   m_widget(parent),
   m_manager(0),
   m_isRunning(true),

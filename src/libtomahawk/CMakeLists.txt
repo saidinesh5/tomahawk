@@ -161,8 +161,8 @@ IF(QCA2_FOUND)
 ENDIF(QCA2_FOUND)
 
 IF(VSXU_FOUND)
-    set( libGuiSources ${libGuiSources} widgets/visualizer/VisualizerWidget.cpp widgets/visualizer/VSXuWidget.cpp widgets/visualizer/VSXuRenderer.cpp)
-    set( libGuiHeaders ${libGuiHeaders} widgets/visualizer/VisualizerWidget.h widgets/visualizer/VSXuWidget.h widgets/visualizer/VSXuRenderer.h)    
+    set( libGuiSources ${libGuiSources} widgets/visualizer/VisualizerWidget.cpp widgets/visualizer/VSXuRenderer.cpp)
+    set( libGuiHeaders ${libGuiHeaders} widgets/visualizer/VisualizerWidget.h widgets/visualizer/VSXuRenderer.h)    
     include_directories( ${VSXU_INCLUDE_DIRS} )
 ENDIF(VSXU_FOUND)
 

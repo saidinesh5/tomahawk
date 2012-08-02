@@ -1,5 +1,5 @@
 /*
-    The Visualizer Page,acting as a placeholder for the VSXuWidget.
+    The Visualizer Page,acting as a placeholder for the VSXuRenderer.
     Copyright (C) 2012  Dinesh <saidinesh5@gmail.com>
 
     This program is free software: you can redistribute it and/or modify
@@ -18,14 +18,24 @@
 
 
 
-#include <QVBoxLayout>
 #include "VisualizerWidget.h"
 
 VisualizerWidget::VisualizerWidget(QWidget* parent):
-  QWidget(parent)
+  QGLWidget(parent),
+  m_renderer(this)
 {
-  QVBoxLayout *layout = new QVBoxLayout;
-  m_VSXuWidget = new VSXuWidget;
-  layout->addWidget(m_VSXuWidget);
-  setLayout(layout);
+    setAutoBufferSwap(false);
+    m_renderer.start();
+}
+
+void VisualizerWidget::resizeEvent(QResizeEvent* event)
+{
+    QSize s = event->size();
+    m_renderer.resize(s.width(),s.height());
+}
+
+VisualizerWidget::~VisualizerWidget()
+{
+    m_renderer.stop();
+    m_renderer.wait();
 }

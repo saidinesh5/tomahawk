@@ -1,5 +1,5 @@
 /*
-    The Visualizer Page, acting as a placeholder for the VSXu Widget.
+    The Visualizer Page, acting as a placeholder for the VSXu Renderer.
     Copyright (C) 2012  Dinesh <saidinesh5@gmail.com>
 
     This program is free software: you can redistribute it and/or modify
@@ -20,17 +20,22 @@
 #ifndef VISUALIZERWIDGET_H
 #define VISUALIZERWIDGET_H
 
-#include <QWidget>
+#include <QGLWidget>
 #include <QPixmap>
+#include <QResizeEvent>
+#include <QShowEvent>
+#include <QHideEvent>
 #include "ViewPage.h"
-#include "VSXuWidget.h"
+#include "VSXuRenderer.h"
 
-class VisualizerWidget : public QWidget,public Tomahawk::ViewPage
+class VisualizerWidget : public QGLWidget,public Tomahawk::ViewPage
 {
     Q_OBJECT
 
 public:
     VisualizerWidget( QWidget *parent = 0 );
+    ~VisualizerWidget();
+
     bool jumpToCurrentTrack() { return false; }
     QString description() const { return QString("Music Visualizer"); }
     QString title() const{ return QString("Vovoid VSXu"); }
@@ -40,8 +45,13 @@ public:
     //TODO: Add the activate and deactivate methods, which can be called from  ViewManager.cpp 
     //when some other page is being activated, to save the CPU cycles.
 
-private:
-    VSXuWidget *m_VSXuWidget;
+protected:
+    void resizeEvent(QResizeEvent* event);
+    void paintEvent(QPaintEvent* ){;}//Will be taken Care by the Rendering thread
+    void hideEvent(QHideEvent* ){ m_renderer.deactivate(); }
+    void showEvent(QShowEvent* ){ m_renderer.activate(); }
 
+private:
+    VSXuRenderer m_renderer;
 };
 #endif // VISUALIZERWIDGET_H

@@ -30,13 +30,13 @@
 
 #define SAMPLES 512
 
-class VSXuWidget;
+class VisualizerWidget;
 class VSXuRenderer: public QThread
 {
   Q_OBJECT
   
     vsx_manager_abs *m_manager;
-    VSXuWidget *m_widget;
+    VisualizerWidget *m_widget;
     bool m_isRunning, m_doResize, m_doAudioUpdate , m_isActive;
     int m_width,m_height;
     // A double buffer for the sound data.
@@ -51,7 +51,7 @@ private slots:
     void receiveAudioData( const QMap<Phonon::AudioDataOutput::Channel, QVector<qint16> >& );
 
 public:
-    VSXuRenderer(VSXuWidget* parent);
+    VSXuRenderer(VisualizerWidget* parent);
     ~VSXuRenderer();
     void deactivate(){ m_isActive = false; }
     void activate(){ m_isActive = true; }
