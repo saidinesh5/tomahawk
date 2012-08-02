@@ -24,6 +24,7 @@
 #include <QStringList>
 #include <QString>
 #include <QThread>
+#include <QMutex>
 #include <vsx_manager.h>
 
 #include "audio/AudioEngine.h"
@@ -33,15 +34,20 @@
 class VisualizerWidget;
 class VSXuRenderer: public QThread
 {
-  Q_OBJECT
-  
+    Q_OBJECT
+
     vsx_manager_abs *m_manager;
     VisualizerWidget *m_widget;
-    bool m_isRunning, m_doResize, m_doAudioUpdate , m_isActive;
+
+    //The Control Variables
+    bool m_isRunning, m_isActive;
+    bool m_doResize, m_doAudioUpdate;
+    bool m_frontbuffer;
+    QMutex m_mutex;
+    
     int m_width,m_height;
     // A double buffer for the sound data.
     float m_soundData[2][SAMPLES];
-    bool m_frontbuffer;
 
     //The Main Loop for VSXu Renderer
     void run();
@@ -53,25 +59,9 @@ private slots:
 public:
     VSXuRenderer(VisualizerWidget* parent);
     ~VSXuRenderer();
-    void deactivate(){ m_isActive = false; }
-    void activate(){ m_isActive = true; }
-    void stop(){ m_isRunning = false;}
-
-    void nextVisual(){ if(m_manager)m_manager->next_visual(); }
-    void prevVisual(){ if(m_manager)m_manager->prev_visual(); }
-
-    bool getRandomizerStatus();
-    void setRandomizer(bool value){ if(m_manager)m_manager->set_randomizer(value); }
-
-    float getFXLevel();
-    void increaseFXLevel(){ if(m_manager)m_manager->inc_fx_level(); }
-    void decreaseFXLevel(){ if(m_manager)m_manager->dec_fx_level(); }
-
-    float getSpeed();
-    void increaseSpeed(){ if(m_manager)m_manager->inc_speed();}
-    void decreaseSpeed(){ if(m_manager)m_manager->dec_speed();}
-
-    QStringList getVisuals();
+    void deactivate();
+    void activate();
+    void stop();
 
     void resize(int w, int h);
     
