@@ -142,6 +142,12 @@ macro_log_feature(LIBLASTFM_FOUND "liblastfm" "Qt library for the Last.fm webser
 macro_optional_find_package(VSXu)
 macro_log_feature(VSXU_FOUND "VSXu" "Vovoid VSXu Audio Visual library" "http://www.vsxu.com" TRUE "" "VSXu is needed to provide cool music visualis for currently playing music.")
 
+IF( BUILD_GUI AND VSXU_FOUND )
+    ADD_DEFINITIONS(-DENABLE_VISUALIZER)
+    SET(ENABLE_VISUALIZER TRUE)
+    MESSAGE( STATUS "Building Tomahawk ${TOMAHAWK_VERSION} with the VSXu Music Visualizer." )
+ENDIF()
+
 #### submodules start
 # automatically init submodules here, don't delete this code we may add submodules again
 

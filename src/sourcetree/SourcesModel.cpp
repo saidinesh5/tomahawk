@@ -311,12 +311,12 @@ SourcesModel::appendGroups()
                                                 boost::bind( &ViewManager::showNewReleasesPage, ViewManager::instance() ),
                                                 boost::bind( &ViewManager::newReleasesWidget, ViewManager::instance() ) );
     newReleases->setSortValue( 5 );
-    
+#ifdef ENABLE_VISUALIZER
     GenericPageItem* visualizer = new GenericPageItem( this, browse, tr( "Visualizer" ), QIcon( RESPATH "images/visualizer.png" ),
                                                 boost::bind( &ViewManager::showVisualizerPage, ViewManager::instance() ),
                                                 boost::bind( &ViewManager::visualizerWidget, ViewManager::instance() ) );
     visualizer->setSortValue( 7 );
-
+#endif
     m_collectionsGroup = new GroupItem( this, m_rootItem, tr( "Friends" ), 4 );
 
     endInsertRows();

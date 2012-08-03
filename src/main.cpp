@@ -35,7 +35,7 @@
 #ifndef ENABLE_HEADLESS
     #include "TomahawkSettingsGui.h"
     #include "breakpad/BreakPad.h"
-    #ifdef Q_WS_X11
+    #ifdef Q_WS_X11 && ENABLE_VISUALIZER
     #include <X11/Xlib.h>
     #endif
 #endif
@@ -139,10 +139,8 @@ main( int argc, char *argv[] )
     #endif // Q_WS_MAC
 #endif //Q_OS_WIN
 
-#ifndef ENABLE_HEADLESS
-    #ifdef Q_WS_X11
+#ifdef Q_WS_X11 && ENABLE_VISUALIZER
     XInitThreads();
-    #endif
 #endif
     TomahawkApp a( argc, argv );
 

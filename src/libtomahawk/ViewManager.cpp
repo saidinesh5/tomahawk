@@ -52,7 +52,9 @@
 #include "widgets/infowidgets/TrackInfoWidget.h"
 #include "widgets/NewPlaylistWidget.h"
 #include "widgets/AnimatedSplitter.h"
+#ifdef ENABLE_VISUALIZER
 #include "widgets/visualizer/VisualizerWidget.h"
+#endif
 
 #include "utils/Logger.h"
 
@@ -77,7 +79,9 @@ ViewManager::ViewManager( QObject* parent )
     , m_whatsHotWidget( new WhatsHotWidget() )
     , m_newReleasesWidget( new NewReleasesWidget() )
     , m_recentPlaysWidget( 0 )
+#ifdef ENABLE_VISUALIZER
     , m_visualizerWidget( 0 )
+#endif
     , m_currentPage( 0 )
     , m_loaded( false )
 {
@@ -411,14 +415,14 @@ ViewManager::showRecentPlaysPage()
 
     return show( m_recentPlaysWidget );
 }
-
+#ifdef ENABLE_VISUALIZER
 ViewPage* ViewManager::showVisualizerPage()
 {
     if(!m_visualizerWidget)
         m_visualizerWidget = new VisualizerWidget(m_widget);
     return show( m_visualizerWidget );
 }
-
+#endif
 
 void
 ViewManager::setFilter( const QString& filter )
@@ -901,11 +905,13 @@ ViewManager::recentPlaysWidget() const
     return m_recentPlaysWidget;
 }
 
+#ifdef ENABLE_VISUALIZER
 Tomahawk::ViewPage*
 ViewManager::visualizerWidget() const
 {
     return m_visualizerWidget;
 }
+#endif
 
 TreeView*
 ViewManager::superCollectionView() const

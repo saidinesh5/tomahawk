@@ -6,9 +6,10 @@ SET( QT_USE_QTNETWORK TRUE )
 SET( QT_USE_QTXML TRUE )
 SET( QT_USE_QTUITOOLS TRUE )
 
-IF(VSXU_FOUND)
+IF(ENABLE_VISUALIZER)
     SET( QT_USE_QTOPENGL TRUE )
-ENDIF(VSXU_FOUND)
+    FIND_PACKAGE (OpenGL REQUIRED)
+ENDIF(ENABLE_VISUALIZER)
 
 IF( UNIX AND NOT APPLE )
   SET( QT_USE_QTDBUS TRUE )
@@ -160,11 +161,11 @@ IF(QCA2_FOUND)
     set( libGuiHeaders ${libGuiHeaders} utils/GroovesharkParser.h )
 ENDIF(QCA2_FOUND)
 
-IF(VSXU_FOUND)
+IF(ENABLE_VISUALIZER)
     set( libGuiSources ${libGuiSources} widgets/visualizer/VisualizerWidget.cpp widgets/visualizer/VSXuRenderer.cpp)
-    set( libGuiHeaders ${libGuiHeaders} widgets/visualizer/VisualizerWidget.h widgets/visualizer/VSXuRenderer.h)    
+    set( libGuiHeaders ${libGuiHeaders} widgets/visualizer/VisualizerWidget.h widgets/visualizer/VSXuRenderer.h)
     include_directories( ${VSXU_INCLUDE_DIRS} )
-ENDIF(VSXU_FOUND)
+ENDIF(ENABLE_VISUALIZER)
 
 set( libSources
     TomahawkSettings.cpp
@@ -426,11 +427,10 @@ IF(LIBLASTFM_FOUND)
     SET(LINK_LIBRARIES ${LINK_LIBRARIES} ${LIBLASTFM_LIBRARIES} )
 ENDIF(LIBLASTFM_FOUND)
 
-IF(VSXU_FOUND)
-    FIND_PACKAGE (OpenGL REQUIRED)
+IF(ENABLE_VISUALIZER)
     SET( LINK_LIBRARIES ${LINK_LIBRARIES} ${VSXU_LIBRARIES} ${QT_QTOPENGL_LIBRARY} ${OPENGL_LIBRARY})
     LINK_DIRECTORIES(${VSXu_LIBRARY_DIRS})
-ENDIF(VSXU_FOUND)
+ENDIF(ENABLE_VISUALIZER)
 
 IF(BUILD_GUI)
     LIST(APPEND libSources ${libGuiSources} )
