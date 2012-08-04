@@ -140,7 +140,7 @@ macro_optional_find_package(LibLastFm 1.0.0)
 macro_log_feature(LIBLASTFM_FOUND "liblastfm" "Qt library for the Last.fm webservices" "https://github.com/eartle/liblastfm" TRUE "" "liblastfm is needed for scrobbling tracks to Last.fm and fetching cover artwork")
 
 macro_optional_find_package(VSXu)
-macro_log_feature(VSXU_FOUND "VSXu" "Vovoid VSXu Audio Visual library" "http://www.vsxu.com" TRUE "" "VSXu is needed to provide cool music visualis for currently playing music.")
+macro_log_feature(VSXU_FOUND "VSXu" "Vovoid VSXu Audio Visual library" "http://www.vsxu.com" FALSE "" "VSXu is needed to provide cool music visualis for currently playing music.")
 
 IF( BUILD_GUI AND VSXU_FOUND )
     ADD_DEFINITIONS(-DENABLE_VISUALIZER)

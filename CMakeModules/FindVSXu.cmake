@@ -17,7 +17,7 @@ else (VSXU_INCLUDE_DIRS AND VSXU_LIBRARIES)
     # use pkg-config to get the values of VSXU_INCLUDE_DIRS
     # and VSXU_LIBRARY_DIRS to add as hints to the find commands.
     include (FindPkgConfig)
-    pkg_check_modules (VSXU REQUIRED libvsxu)
+    pkg_check_modules (VSXU libvsxu)
   endif (NOT WIN32)
 
   find_library (VSXU_LIBRARIES
