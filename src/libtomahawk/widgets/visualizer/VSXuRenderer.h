@@ -44,7 +44,7 @@ class VSXuRenderer: public QThread
     bool m_doResize, m_doAudioUpdate;
     bool m_frontbuffer;
     QMutex m_mutex;
-    
+
     int m_width,m_height;
     // A double buffer for the sound data.
     float m_soundData[2][SAMPLES];
@@ -64,7 +64,7 @@ public:
     void stop();
 
     void resize(int w, int h);
-    
+
 };
 
 #endif // VSXURENDERER_H

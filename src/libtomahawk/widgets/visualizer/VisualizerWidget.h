@@ -42,7 +42,7 @@ public:
     QPixmap pixmap() const { return QPixmap( RESPATH "images/visualizer.png" ); }
     Tomahawk::playlistinterface_ptr playlistInterface() const { return Tomahawk::playlistinterface_ptr(); }
     QWidget* widget(){ return this; }
-    //TODO: Add the activate and deactivate methods, which can be called from  ViewManager.cpp 
+    //TODO: Add the activate and deactivate methods, which can be called from  ViewManager.cpp
     //when some other page is being activated, to save the CPU cycles.
 
 protected:
