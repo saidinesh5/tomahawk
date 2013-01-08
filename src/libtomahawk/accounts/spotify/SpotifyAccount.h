@@ -28,7 +28,8 @@
 #include "utils/SmartPointerList.h"
 #include "DllMacro.h"
 
-class QAction;
+#include <QAction>
+
 class SpotifyPlaylistUpdater;
 class QTimer;
 
@@ -50,13 +51,14 @@ class SpotifyAccountConfig;
 // metadata for a playlist
 struct SpotifyPlaylistInfo {
     QString name, plid, revid;
-    bool sync, subscribed, changed;
+    bool sync, subscribed, changed, isOwner, starContainer;
+    bool loveSync;
 
+    SpotifyPlaylistInfo( const QString& nname, const QString& pid, const QString& rrevid, bool ssync, bool ssubscribed, bool isowner = false, bool star = false )
+        : name( nname ), plid( pid ), revid( rrevid ), sync( ssync ), subscribed( ssubscribed )
+        , changed( false ), isOwner( isowner ), starContainer( star ), loveSync( false ) {}
 
-    SpotifyPlaylistInfo( const QString& nname, const QString& pid, const QString& rrevid, bool ssync, bool ssubscribed )
-        : name( nname ), plid( pid ), revid( rrevid ), sync( ssync ), subscribed( ssubscribed ), changed( false ) {}
-
-    SpotifyPlaylistInfo() : sync( false ), changed( false ) {}
+    SpotifyPlaylistInfo() : sync( false ), changed( false ), starContainer( false ), loveSync( false ) {}
 };
 
 
@@ -103,23 +105,25 @@ public:
 
 
     void registerUpdaterForPlaylist( const QString& plId, SpotifyPlaylistUpdater* updater );
-    void registerPlaylistInfo( const QString& name, const QString& plid, const QString &revid, const bool sync, const bool subscribed );
+    void registerPlaylistInfo( const QString& name, const QString& plid, const QString &revid, const bool sync, const bool subscribed , const bool owner = false);
     void registerPlaylistInfo( SpotifyPlaylistInfo* info );
     void unregisterUpdater( const QString& plid );
 
     bool deleteOnUnsync() const;
-
+    bool loveSync() const;
+    void starTrack(const QString& artist, const QString&title, const bool starred);
     void setManualResolverPath( const QString& resolverPath );
 
     bool loggedIn() const;
 
 public slots:
     QString sendMessage( const QVariantMap& msg, QObject* receiver = 0, const QString& slot = QString(), const QVariant& extraData = QVariant() );
-    
+
     void aboutToShow( QAction* action, const Tomahawk::playlist_ptr& playlist );
-    void syncActionTriggered( bool );
-    void subscribeActionTriggered( bool );
+    void syncActionTriggered( QAction* action );
+    void subscribeActionTriggered( QAction* action );
     void atticaLoaded(Attica::Content::List);
+    void collaborateActionTriggered( QAction* action );
 
 private slots:
     void resolverChanged();
@@ -137,13 +141,11 @@ private slots:
     void playlistCopyCreated( const QString& msgType, const QVariantMap& msg, const QVariant& extraData );
     void delayedInit();
     void hookupAfterDeletion( bool autoEnable );
-
 private:
     void init();
     bool checkForResolver();
     void hookupResolver();
     void killExistingResolvers();
-
     void loadPlaylists();
     void clearUser( bool permanentlyDelete = false );
 
@@ -157,13 +159,14 @@ private:
     void createActions();
     void removeActions();
     playlist_ptr playlistFromAction( QAction* action ) const;
-
+    SpotifyPlaylistUpdater* getPlaylistUpdater( const playlist_ptr plptr);
+    SpotifyPlaylistUpdater* getPlaylistUpdater( QObject* sender );
     static SpotifyAccount* s_instance;
 
-    QWeakPointer<SpotifyAccountConfig> m_configWidget;
-    QWeakPointer<QWidget> m_aboutWidget;
-    QWeakPointer<ScriptResolver> m_spotifyResolver;
-    QWeakPointer< InfoSystem::SpotifyInfoPlugin > m_infoPlugin;
+    QPointer<SpotifyAccountConfig> m_configWidget;
+    QPointer<QWidget> m_aboutWidget;
+    QPointer<ScriptResolver> m_spotifyResolver;
+    QPointer< InfoSystem::SpotifyInfoPlugin > m_infoPlugin;
 
     QMap<QString, QPair<QObject*, QString> > m_qidToSlotMap;
     QMap<QString, QVariant > m_qidToExtraData;
@@ -185,5 +188,6 @@ private:
 }
 
 Q_DECLARE_METATYPE( Tomahawk::Accounts::SpotifyPlaylistInfo* )
+Q_DECLARE_METATYPE( QAction* )
 
 #endif // SpotifyAccount_H

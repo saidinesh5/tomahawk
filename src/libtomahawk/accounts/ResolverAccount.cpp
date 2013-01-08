@@ -18,13 +18,14 @@
 
 #include "ResolverAccount.h"
 
+#include "AccountManager.h"
+#include "AtticaManager.h"
 #include "ExternalResolver.h"
 #include "ExternalResolverGui.h"
-#include "AccountManager.h"
+#include "Pipeline.h"
 #include "TomahawkSettings.h"
 #include "Source.h"
 
-#include <Pipeline.h>
 #include <QFile>
 #include <QFileInfo>
 #include <QDir>
@@ -126,7 +127,7 @@ ResolverAccount::hookupResolver()
 {
     tDebug() << "Hooking up resolver:" << configuration().value( "path" ).toString() << enabled();
 
-    m_resolver = QWeakPointer< ExternalResolverGui >( qobject_cast< ExternalResolverGui* >( Pipeline::instance()->addScriptResolver( configuration().value( "path" ).toString() ) ) );
+    m_resolver = QPointer< ExternalResolverGui >( qobject_cast< ExternalResolverGui* >( Pipeline::instance()->addScriptResolver( configuration().value( "path" ).toString() ) ) );
     connect( m_resolver.data(), SIGNAL( changed() ), this, SLOT( resolverChanged() ) );
 
     // What resolver do we have here? Should only be types that are 'real' resolvers
@@ -231,6 +232,11 @@ ResolverAccount::resolverChanged()
     emit connectionStateChanged( connectionState() );
 }
 
+QPixmap
+ResolverAccount::icon() const
+{
+    return m_resolver.data()->icon();
+}
 
 /// AtticaResolverAccount
 
@@ -239,8 +245,9 @@ AtticaResolverAccount::AtticaResolverAccount( const QString& accountId )
 {
     TomahawkSettings::instance()->setValue( QString( "accounts/%1/atticaresolver" ).arg( accountId ), true );
 
+    init();
     m_atticaId = configuration().value( "atticaId" ).toString();
-    loadIcon();
+
 }
 
 AtticaResolverAccount::AtticaResolverAccount( const QString& accountId, const QString& path, const QString& atticaId )
@@ -253,7 +260,7 @@ AtticaResolverAccount::AtticaResolverAccount( const QString& accountId, const QS
 
     TomahawkSettings::instance()->setValue( QString( "accounts/%1/atticaresolver" ).arg( accountId ), true );
 
-    loadIcon();
+    init();
     sync();
 }
 
@@ -264,17 +271,28 @@ AtticaResolverAccount::~AtticaResolverAccount()
 
 
 void
+AtticaResolverAccount::init()
+{
+    connect( AtticaManager::instance(), SIGNAL( resolverIconUpdated( QString ) ), this, SLOT( resolverIconUpdated( QString ) ) );
+
+    if ( AtticaManager::instance()->resolversLoaded() )
+        loadIcon();
+    else
+        connect( AtticaManager::instance(), SIGNAL( resolversLoaded( Attica::Content::List ) ), this, SLOT( loadIcon() ) );
+
+
+}
+
+
+void
 AtticaResolverAccount::loadIcon()
 {
     if ( m_resolver.isNull() )
         return;
 
-    const QFileInfo fi( m_resolver.data()->filePath() );
-    QDir codeDir = fi.absoluteDir();
-    codeDir.cd( "../images" );
 
-    if ( codeDir.exists() && codeDir.exists( "icon.png" ) )
-        m_icon.load( codeDir.absoluteFilePath( "icon.png" ) );
+    m_icon = AtticaManager::instance()->iconForResolver( AtticaManager::instance()->resolverForId( m_atticaId ) );
+    m_resolver.data()->setIcon( m_icon );
 }
 
 
@@ -295,4 +313,12 @@ QPixmap
 AtticaResolverAccount::icon() const
 {
     return m_icon;
+}
+
+
+void
+AtticaResolverAccount::resolverIconUpdated( const QString& resolver )
+{
+    if ( m_atticaId == resolver )
+        loadIcon();
 }

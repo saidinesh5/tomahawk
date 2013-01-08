@@ -1,6 +1,6 @@
 /* === This file is part of Tomahawk Player - <http://tomahawk-player.org> ===
  *
- *   Copyright 2010-2011, Christian Muehlhaeuser <muesli@tomahawk-player.org>
+ *   Copyright 2010-2011, Leo Franchi <lfranchi@kde.org>
  *
  *   Tomahawk is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -18,19 +18,18 @@
 
 #include "WidgetDragFilter.h"
 
+#include "utils/Logger.h"
+
 #include <QMouseEvent>
 #include <QApplication>
 #include <QMenuBar>
-
-#include "utils/Logger.h"
-
 
 WidgetDragFilter::WidgetDragFilter( QObject* parent )
     : QObject( parent )
     , m_dragStarted( false )
 {
     Q_ASSERT( parent->isWidgetType() );
-    m_target = QWeakPointer<QWidget>(static_cast<QWidget*>(parent));
+    m_target = QPointer<QWidget>(static_cast<QWidget*>(parent));
     m_target.data()->installEventFilter( this );
 }
 

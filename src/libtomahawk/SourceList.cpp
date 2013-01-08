@@ -23,6 +23,7 @@
 #include "database/DatabaseCommand_LoadAllSources.h"
 #include "network/RemoteCollection.h"
 #include "network/ControlConnection.h"
+#include "infosystem/InfoSystemCache.h"
 
 #include "utils/Logger.h"
 
@@ -51,7 +52,7 @@ SourceList::SourceList( QObject* parent )
 
 
 const source_ptr&
-SourceList::getLocal()
+SourceList::getLocal() const
 {
     return m_local;
 }

@@ -48,17 +48,88 @@ namespace TomahawkUtils
         DefaultArtistImage,
         DefaultTrackImage,
         DefaultSourceAvatar,
+        DefaultCollection,
+        DefaultResolver,
         NowPlayingSpeaker,
-        InfoIcon
+        NowPlayingSpeakerDark,
+        InfoIcon,
+        PlayButton,
+        PlayButtonPressed,
+        PauseButton,
+        PauseButtonPressed,
+        PrevButton,
+        PrevButtonPressed,
+        NextButton,
+        NextButtonPressed,
+        ShuffleOff,
+        ShuffleOffPressed,
+        ShuffleOn,
+        ShuffleOnPressed,
+        RepeatOne,
+        RepeatOnePressed,
+        RepeatAll,
+        RepeatAllPressed,
+        RepeatOff,
+        RepeatOffPressed,
+        VolumeMuted,
+        VolumeFull,
+        Share,
+        NotLoved,
+        Loved,
+        Configure,
+        GreenDot,
+        AddContact,
+        SubscribeOn,
+        SubscribeOff,
+        JumpLink,
+        ProcessStop,
+        HeadphonesOn,
+        HeadphonesOff,
+        PadlockClosed,
+        PadlockOpen,
+        Downloading,
+        Uploading,
+        ViewRefresh,
+        SuperCollection,
+        LovedPlaylist,
+        NewReleases,
+        NewAdditions,
+        RecentlyPlayed,
+        AutomaticPlaylist,
+        Charts,
+        Station,
+        Playlist,
+        Search,
+        ListRemove,
+        ListAdd,
+        AdvancedSettings,
+        AccountSettings,
+        MusicSettings,
+        Add,
+        DropSong,
+        DropAlbum,
+        DropAllSongs,
+        DropLocalSongs,
+        DropTopSongs,
+        LastfmIcon,
+        SpotifyIcon,
+        SoundcloudIcon,
+        AccountNone,
+        Starred,
+        Unstarred,
+        StarHovered,
+        SipPluginOnline,
+        SipPluginOffline,
+        Invalid
     };
 
     enum ImageMode
     {
         Original,
         CoverInCase,
-        AvatarInFrame,
-        ScaledCover,
-        Grid
+        Grid,
+        DropShadow,
+        RoundedCorners
     };
 
 
@@ -67,6 +138,7 @@ namespace TomahawkUtils
     public:
         NetworkProxyFactory()
             : m_proxy( QNetworkProxy::NoProxy )
+            , m_proxyChanged( false )
         {}
 
         NetworkProxyFactory( const NetworkProxyFactory &other );
@@ -81,10 +153,11 @@ namespace TomahawkUtils
 
         virtual NetworkProxyFactory& operator=( const NetworkProxyFactory &rhs );
         virtual bool operator==( const NetworkProxyFactory &other ) const;
-
+        bool changed() const { return m_proxyChanged; }
     private:
         QStringList m_noProxyHosts;
         QNetworkProxy m_proxy;
+        bool m_proxyChanged;
     };
 
     DLLEXPORT bool headless();
@@ -95,6 +168,8 @@ namespace TomahawkUtils
     DLLEXPORT QDir appConfigDir();
     DLLEXPORT QDir appDataDir();
     DLLEXPORT QDir appLogDir();
+
+    DLLEXPORT void installTranslator( QObject* parent );
 
     DLLEXPORT QString timeToString( int seconds );
     DLLEXPORT QString ageToString( const QDateTime& time, bool appendAgoString = false );
@@ -125,6 +200,8 @@ namespace TomahawkUtils
     // Used by the above, not exported
     void copyWithAuthentication( const QString& srcFile, const QDir dest, QObject* receiver );
 
+    DLLEXPORT bool whitelistedHttpResultHint( const QString& url );
+
     /**
      * This helper is designed to help "update" an existing playlist with a newer revision of itself.
      * To avoid re-loading the whole playlist and re-resolving tracks that are the same in the old playlist,
@@ -137,6 +214,19 @@ namespace TomahawkUtils
     DLLEXPORT QList< Tomahawk::query_ptr > mergePlaylistChanges( const QList< Tomahawk::query_ptr >& orig, const QList< Tomahawk::query_ptr >& newTracks, bool& changed );
 
     DLLEXPORT void crash();
+
+
+    /**
+     * Qt4 / Qt5 compatibility layer
+     */
+
+    /* QUrl */
+    DLLEXPORT void urlAddQueryItem( QUrl& url, const QString& key, const QString& value );
+    DLLEXPORT QString urlQueryItemValue( const QUrl& url, const QString& key );
+    DLLEXPORT bool urlHasQueryItem( const QUrl& url, const QString& key );
+    DLLEXPORT QList<QPair<QString, QString> > urlQueryItems( const QUrl& url );
+    DLLEXPORT void urlSetQuery( QUrl& url, const QString& query );
+
 }
 
 #endif // TOMAHAWKUTILS_H

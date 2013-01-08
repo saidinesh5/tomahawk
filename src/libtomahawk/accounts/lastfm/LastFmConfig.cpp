@@ -19,6 +19,8 @@
 #include "LastFmConfig.h"
 #include "ui_LastFmConfig.h"
 
+#include <boost/bind.hpp>
+
 #include "LastFmAccount.h"
 #include "database/Database.h"
 #include "database/DatabaseCommand_LogPlayback.h"
@@ -191,6 +193,7 @@ LastFmConfig::onHistoryLoaded()
     {
         if ( m_page != total )
         {
+            //: Text on a button that resumes import
             m_ui->importHistory->setText( tr( "History Incomplete. Resume" ) );
             m_ui->importHistory->setEnabled( true );
         }
@@ -265,7 +268,6 @@ LastFmConfig::syncLovedTracks( uint page )
     connect( cmd, SIGNAL( done( DatabaseCommand_LoadSocialActions::TrackActions ) ), this, SLOT( localLovedLoaded( DatabaseCommand_LoadSocialActions::TrackActions ) ) );
 
     Database::instance()->enqueue( QSharedPointer< DatabaseCommand >( cmd ) );
-
 }
 
 
@@ -294,14 +296,13 @@ LastFmConfig::onLovedFinished( QNetworkReply* reply )
             m_ui->progressBar->setValue( thisPage );
             foreach ( lastfm::XmlQuery e, loved.children( "track" ) )
             {
-//                 tDebug() << "Found:" << e.children( "artist" ).first()["name"].text() << e["name"].text() << e["date"].attribute( "uts" ).toUInt();
+                 tDebug() << "Found:" << e.children( "artist" ).first()["name"].text() << e["name"].text() << e["date"].attribute( "uts" ).toUInt();
                 Tomahawk::query_ptr query = Tomahawk::Query::get( e.children( "artist" ).first()["name"].text(), e["name"].text(), QString(), QString(), false );
                 if ( query.isNull() )
                     continue;
 
                 m_lastfmLoved.insert( query );
             }
-
 
             if ( thisPage == m_totalLovedPages )
             {
@@ -336,6 +337,8 @@ LastFmConfig::onLovedFinished( QNetworkReply* reply )
 
 bool trackEquality( const Tomahawk::query_ptr& first, const Tomahawk::query_ptr& second )
 {
+    qDebug() << "Comparing:" << first->track() << second->track();
+    qDebug() << "==========" << first->artist() << second->artist();
     return first->equals( second, true );
 }
 
@@ -372,15 +375,20 @@ LastFmConfig::syncLoved()
 
     foreach ( const Tomahawk::query_ptr& localLoved, myLoved )
     {
+        qDebug() << "CHECKING FOR LOCAL LOVED ON LAST.FM TOO:" << m_localLoved[ localLoved ].value.toString() << localLoved->track() << localLoved->artist();
         QSet< Tomahawk::query_ptr >::const_iterator iter = std::find_if( m_lastfmLoved.begin(), m_lastfmLoved.end(), boost::bind( &trackEquality, _1, boost::ref( localLoved ) ) );
 
+        qDebug() << "Result:" << (iter == m_lastfmLoved.constEnd());
         // If we unloved it locally, but it's still loved on last.fm, unlove it
         if ( m_localLoved[ localLoved ].value.toString() == "false" && iter != m_lastfmLoved.constEnd() )
             lastFmToUnlove << localLoved;
 
         // If we loved it locally but not loved on last.fm, love it
         if ( m_localLoved[ localLoved ].value.toString() == "true" && iter == m_lastfmLoved.constEnd() )
+        {
+            qDebug() << "Found Local loved track but not on last.fm!:" << localLoved->track() << localLoved->artist();
             lastFmToLove << localLoved;
+        }
     }
 
     foreach ( const Tomahawk::query_ptr& track, localToLove )

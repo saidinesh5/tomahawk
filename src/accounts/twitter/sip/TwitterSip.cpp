@@ -20,6 +20,22 @@
 
 #include "TwitterSip.h"
 
+#include "utils/TomahawkUtils.h"
+#include "TomahawkSettings.h"
+#include "database/Database.h"
+#include "database/DatabaseImpl.h"
+#include "network/Servent.h"
+#include "Source.h"
+
+#include "utils/Logger.h"
+#include "accounts/twitter/TomahawkOAuthTwitter.h"
+#include "accounts/twitter/TwitterAccount.h"
+
+#include <QTweetLib/qtweetaccountverifycredentials.h>
+#include <QTweetLib/qtweetuser.h>
+#include <QTweetLib/qtweetstatus.h>
+#include <QTweetLib/qtweetusershow.h>
+
 #include <QtPlugin>
 #include <QDateTime>
 #include <QRegExp>
@@ -27,22 +43,6 @@
 #include <QNetworkRequest>
 #include <QNetworkReply>
 #include <QStringList>
-
-#include <QTweetLib/qtweetaccountverifycredentials.h>
-#include <QTweetLib/qtweetuser.h>
-#include <QTweetLib/qtweetstatus.h>
-#include <QTweetLib/qtweetusershow.h>
-
-#include <utils/TomahawkUtils.h>
-#include <TomahawkSettings.h>
-#include <database/Database.h>
-#include <database/DatabaseImpl.h>
-#include <network/Servent.h>
-#include "Source.h"
-
-#include "utils/Logger.h"
-#include "accounts/twitter/TomahawkOAuthTwitter.h"
-#include <accounts/twitter/TwitterAccount.h>
 
 static QString s_gotTomahawkRegex = QString( "^(@[a-zA-Z0-9]+ )?(Got Tomahawk\\?) (\\{[a-fA-F0-9\\-]+\\}) (.*)$" );
 
@@ -60,7 +60,7 @@ TwitterSipPlugin::TwitterSipPlugin( Tomahawk::Accounts::Account* account )
 {
     qDebug() << Q_FUNC_INFO;
 
-    connect( account, SIGNAL( nowAuthenticated( const QWeakPointer< TomahawkOAuthTwitter > &, const QTweetUser & ) ), SLOT( accountAuthenticated( const QWeakPointer< TomahawkOAuthTwitter > &, const QTweetUser & ) ) );
+    connect( account, SIGNAL( nowAuthenticated( const QPointer< TomahawkOAuthTwitter > &, const QTweetUser & ) ), SLOT( accountAuthenticated( const QPointer< TomahawkOAuthTwitter > &, const QTweetUser & ) ) );
 
     m_configuration = account->configuration();
     qDebug() << "SIP configuration:" << m_configuration << m_configuration[ "cachedpeers" ];
@@ -96,6 +96,12 @@ Tomahawk::Accounts::Account::ConnectionState
 TwitterSipPlugin::connectionState() const
 {
     return m_state;
+}
+
+QString
+TwitterSipPlugin::inviteString() const
+{
+    return tr( "Enter Twitter username" );
 }
 
 
@@ -149,7 +155,7 @@ TwitterSipPlugin::disconnectPlugin()
     if( !m_directMessageDestroy.isNull() )
         delete m_directMessageDestroy.data();
 
-    m_cachedTwitterAuth.clear();
+    m_cachedTwitterAuth = 0;
 
     m_configuration[ "cachedpeers" ] = m_cachedPeers;
     syncConfig();
@@ -159,7 +165,7 @@ TwitterSipPlugin::disconnectPlugin()
 }
 
 void
-TwitterSipPlugin::accountAuthenticated( const QWeakPointer< TomahawkOAuthTwitter > &twitterAuth, const QTweetUser &user )
+TwitterSipPlugin::accountAuthenticated( const QPointer< TomahawkOAuthTwitter > &twitterAuth, const QTweetUser &user )
 {
     Q_UNUSED( user );
 
@@ -168,11 +174,11 @@ TwitterSipPlugin::accountAuthenticated( const QWeakPointer< TomahawkOAuthTwitter
 
     m_cachedTwitterAuth = twitterAuth;
 
-    m_friendsTimeline = QWeakPointer<QTweetFriendsTimeline>( new QTweetFriendsTimeline( m_cachedTwitterAuth.data(), this ) );
-    m_mentions = QWeakPointer<QTweetMentions>( new QTweetMentions( m_cachedTwitterAuth.data(), this ) );
-    m_directMessages = QWeakPointer<QTweetDirectMessages>( new QTweetDirectMessages( m_cachedTwitterAuth.data(), this ) );
-    m_directMessageNew = QWeakPointer<QTweetDirectMessageNew>( new QTweetDirectMessageNew( m_cachedTwitterAuth.data(), this ) );
-    m_directMessageDestroy = QWeakPointer<QTweetDirectMessageDestroy>( new QTweetDirectMessageDestroy( m_cachedTwitterAuth.data(), this ) );
+    m_friendsTimeline = QPointer<QTweetFriendsTimeline>( new QTweetFriendsTimeline( m_cachedTwitterAuth.data(), this ) );
+    m_mentions = QPointer<QTweetMentions>( new QTweetMentions( m_cachedTwitterAuth.data(), this ) );
+    m_directMessages = QPointer<QTweetDirectMessages>( new QTweetDirectMessages( m_cachedTwitterAuth.data(), this ) );
+    m_directMessageNew = QPointer<QTweetDirectMessageNew>( new QTweetDirectMessageNew( m_cachedTwitterAuth.data(), this ) );
+    m_directMessageDestroy = QPointer<QTweetDirectMessageDestroy>( new QTweetDirectMessageDestroy( m_cachedTwitterAuth.data(), this ) );
     connect( m_friendsTimeline.data(), SIGNAL( parsedStatuses(const QList< QTweetStatus > &) ), SLOT( friendsTimelineStatuses(const QList<QTweetStatus> &) ) );
     connect( m_mentions.data(), SIGNAL( parsedStatuses(const QList< QTweetStatus > &) ), SLOT( mentionsStatuses(const QList<QTweetStatus> &) ) );
     connect( m_directMessages.data(), SIGNAL( parsedDirectMessages(const QList<QTweetDMStatus> &)), SLOT( directMessages(const QList<QTweetDMStatus> &) ) );

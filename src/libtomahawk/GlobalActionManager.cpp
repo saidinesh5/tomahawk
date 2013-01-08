@@ -46,22 +46,23 @@
     #include "playlist/PlaylistView.h"
     #include "widgets/SearchWidget.h"
 
-    #include <QtGui/QApplication>
-    #include <QtGui/QClipboard>
+    #include <QApplication>
+    #include <QClipboard>
 #endif
 
-#include <QtNetwork/QNetworkAccessManager>
-#include <QtNetwork/QNetworkReply>
-#include <QtNetwork/QNetworkConfiguration>
-#include <QtNetwork/QNetworkProxy>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkConfiguration>
+#include <QNetworkProxy>
 
-#include <QtCore/QMimeData>
-#include <QtCore/QUrl>
+#include <QMimeData>
+#include <QUrl>
 
 
 GlobalActionManager* GlobalActionManager::s_instance = 0;
 
 using namespace Tomahawk;
+using namespace TomahawkUtils;
 
 
 GlobalActionManager*
@@ -129,11 +130,11 @@ GlobalActionManager::openLink( const QString& title, const QString& artist, cons
     QUrl link( QString( "%1/open/track/" ).arg( hostname() ) );
 
     if ( !artist.isEmpty() )
-        link.addQueryItem( "artist", artist );
+       TomahawkUtils::urlAddQueryItem( link, "artist", artist );
     if ( !title.isEmpty() )
-        link.addQueryItem( "title", title );
+        TomahawkUtils::urlAddQueryItem( link, "title", title );
     if ( !album.isEmpty() )
-        link.addQueryItem( "album", album );
+        TomahawkUtils::urlAddQueryItem( link, "album", album );
 
     return link;
 }
@@ -153,6 +154,7 @@ GlobalActionManager::shortenLink( const QUrl& url, const QVariant& callbackObj )
     QNetworkRequest request;
     request.setUrl( url );
 
+    qDebug() << "Doing lookup:" << url.toEncoded();
     QNetworkReply *reply = TomahawkUtils::nam()->get( request );
     if ( callbackObj.isValid() )
         reply->setProperty( "callbackobj", callbackObj );
@@ -220,8 +222,8 @@ GlobalActionManager::copyPlaylistToClipboard( const dynplaylist_ptr& playlist )
         return QString();
     }
 
-    link.addEncodedQueryItem( "type", "echonest" );
-    link.addQueryItem( "title", playlist->title() );
+    TomahawkUtils::urlAddQueryItem( link, "type", "echonest" );
+    TomahawkUtils::urlAddQueryItem( link, "title", playlist->title() );
 
     QList< dyncontrol_ptr > controls = playlist->generator()->controls();
     foreach ( const dyncontrol_ptr& c, controls )
@@ -229,13 +231,13 @@ GlobalActionManager::copyPlaylistToClipboard( const dynplaylist_ptr& playlist )
         if ( c->selectedType() == "Artist" )
         {
             if ( c->match().toInt() == Echonest::DynamicPlaylist::ArtistType )
-                link.addQueryItem( "artist_limitto", c->input() );
+                TomahawkUtils::urlAddQueryItem( link, "artist_limitto", c->input() );
             else
-                link.addQueryItem( "artist", c->input() );
+                TomahawkUtils::urlAddQueryItem( link, "artist", c->input() );
         }
         else if ( c->selectedType() == "Artist Description" )
         {
-            link.addQueryItem( "description", c->input() );
+            TomahawkUtils::urlAddQueryItem( link, "description", c->input() );
         }
         else
         {
@@ -248,7 +250,7 @@ GlobalActionManager::copyPlaylistToClipboard( const dynplaylist_ptr& playlist )
                || p == Echonest::DynamicPlaylist::ArtistMaxLongitude )
                 name += "_max";
 
-            link.addQueryItem( name, c->input() );
+            TomahawkUtils::urlAddQueryItem( link, name, c->input() );
         }
     }
 
@@ -308,6 +310,7 @@ GlobalActionManager::parseTomahawkLink( const QString& urlIn )
     {
         QString cmd = url.mid( 11 );
         cmd.replace( "%2B", "%20" );
+        cmd.replace( "+", "%20" ); // QUrl doesn't parse '+' into " "
         tLog() << "Parsing tomahawk link command" << cmd;
 
         QString cmdType = cmd.split( "/" ).first();
@@ -316,9 +319,9 @@ GlobalActionManager::parseTomahawkLink( const QString& urlIn )
         // for backwards compatibility
         if ( cmdType == "load" )
         {
-            if ( u.hasQueryItem( "xspf" ) )
+            if ( urlHasQueryItem( u, "xspf" ) )
             {
-                QUrl xspf = QUrl::fromUserInput( u.queryItemValue( "xspf" ) );
+                QUrl xspf = QUrl::fromUserInput( urlQueryItemValue( u, "xspf" ) );
                 XSPFLoader* l = new XSPFLoader( true, this );
                 tDebug() << "Loading spiff:" << xspf.toString();
                 l->load( xspf );
@@ -326,9 +329,9 @@ GlobalActionManager::parseTomahawkLink( const QString& urlIn )
 
                 return true;
             }
-            else if ( u.hasQueryItem( "jspf" ) )
+            else if ( urlHasQueryItem( u, "jspf" ) )
             {
-                QUrl jspf = QUrl::fromUserInput( u.queryItemValue( "jspf" ) );
+                QUrl jspf = QUrl::fromUserInput( urlQueryItemValue( u, "jspf" ) );
                 JSPFLoader* l = new JSPFLoader( true, this );
 
                 tDebug() << "Loading jspiff:" << jspf.toString();
@@ -409,35 +412,35 @@ GlobalActionManager::handlePlaylistCommand( const QUrl& url )
 
     if ( parts[ 0 ] == "import" )
     {
-        if ( !url.hasQueryItem( "xspf" ) && !url.hasQueryItem( "jspf") )
+        if ( !urlHasQueryItem( url, "xspf" ) && !urlHasQueryItem( url, "jspf" ) )
         {
             tDebug() << "No xspf or jspf to load...";
             return false;
         }
-        if ( url.hasQueryItem( "xspf" ) )
+        if ( urlHasQueryItem( url, "xspf" ) )
         {
-            createPlaylistFromUrl( "xspf", url.queryItemValue( "xspf" ), url.hasQueryItem( "title" ) ? url.queryItemValue( "title" ) : QString() );
+            createPlaylistFromUrl( "xspf", urlQueryItemValue( url, "xspf" ), urlHasQueryItem( url, "title" ) ? urlQueryItemValue( url, "title" ) : QString() );
             return true;
         }
-        else if ( url.hasQueryItem( "jspf" ) )
+        else if ( urlHasQueryItem( url, "jspf" ) )
         {
-            createPlaylistFromUrl( "jspf", url.queryItemValue( "jspf" ), url.hasQueryItem( "title" ) ? url.queryItemValue( "title" ) : QString() );
+            createPlaylistFromUrl( "jspf", urlQueryItemValue( url, "jspf" ), urlHasQueryItem( url, "title" ) ? urlQueryItemValue( url, "title" ) : QString() );
             return true;
         }
     }
     else if ( parts [ 0 ] == "new" )
     {
-        if ( !url.hasQueryItem( "title" ) )
+        if ( !urlHasQueryItem( url, "title" ) )
         {
             tLog() << "New playlist command needs a title...";
             return false;
         }
-        playlist_ptr pl = Playlist::create( SourceList::instance()->getLocal(), uuid(), url.queryItemValue( "title" ), QString(), QString(), false );
+        playlist_ptr pl = Playlist::create( SourceList::instance()->getLocal(), uuid(), urlQueryItemValue( url, "title" ), QString(), QString(), false );
         ViewManager::instance()->show( pl );
     }
     else if ( parts[ 0 ] == "add" )
     {
-        if ( !url.hasQueryItem( "playlistid" ) || !url.hasQueryItem( "title" ) || !url.hasQueryItem( "artist" ) )
+        if ( !urlHasQueryItem( url, "playlistid" ) || !urlHasQueryItem( url, "title" ) || !urlHasQueryItem( url, "artist" ) )
         {
             tLog() << "Add to playlist command needs playlistid, track, and artist..." << url.toString();
             return false;
@@ -459,14 +462,14 @@ GlobalActionManager::handleImportCommand( const QUrl& url )
 
     if ( parts[ 0 ] == "playlist" )
     {
-        if ( url.hasQueryItem( "xspf" ) )
+        if ( urlHasQueryItem( url, "xspf" ) )
         {
-            createPlaylistFromUrl( "xspf", url.queryItemValue( "xspf" ), url.hasQueryItem( "title" ) ? url.queryItemValue( "title" ) : QString() );
+            createPlaylistFromUrl( "xspf", urlQueryItemValue( url, "xspf" ), urlHasQueryItem( url, "title" ) ? urlQueryItemValue( url, "title" ) : QString() );
             return true;
         }
-        else if ( url.hasQueryItem( "jspf" ) )
+        else if ( urlHasQueryItem( url, "jspf" ) )
         {
-            createPlaylistFromUrl( "jspf", url.queryItemValue( "jspf" ), url.hasQueryItem( "title" ) ? url.queryItemValue( "title" ) : QString() );
+            createPlaylistFromUrl( "jspf", urlQueryItemValue( url, "jspf" ), urlHasQueryItem( url, "title" ) ? urlQueryItemValue( url, "title" ) : QString() );
             return true;
         }
     }
@@ -545,7 +548,7 @@ GlobalActionManager::handleOpenCommand( const QUrl& url )
         return false;
     }
     // TODO user configurable in the UI
-    return doQueueAdd( parts, url.queryItems() );
+    return doQueueAdd( parts, urlQueryItems( url ) );
 }
 
 
@@ -599,7 +602,7 @@ GlobalActionManager::handleQueueCommand( const QUrl& url )
 
     if ( parts[ 0 ] == "add" )
     {
-        doQueueAdd( parts.mid( 1 ), url.queryItems() );
+        doQueueAdd( parts.mid( 1 ), urlQueryItems( url ) );
     }
     else
     {
@@ -644,8 +647,12 @@ GlobalActionManager::doQueueAdd( const QStringList& parts, const QList< QPair< Q
                 return false;
 
             if ( !urlStr.isEmpty() )
+            {
                 q->setResultHint( urlStr );
-            Pipeline::instance()->resolve( q );
+                q->setSaveHTTPResultHint( true );
+            }
+
+            Pipeline::instance()->resolve( q, true );
 
             handleOpenTrack( q );
             return true;
@@ -667,8 +674,13 @@ GlobalActionManager::doQueueAdd( const QStringList& parts, const QList< QPair< Q
                 { // give it a web result hint
                     QFileInfo info( track.path() );
                     query_ptr q = Query::get( QString(), info.baseName(), QString(), uuid(), false );
+
                     if ( q.isNull() )
                         continue;
+
+                    q->setResultHint( track.toString() );
+                    q->setSaveHTTPResultHint( true );
+
 
                     q->setResultHint( track.toString() );
                     Pipeline::instance()->resolve( q );
@@ -772,17 +784,17 @@ GlobalActionManager::handleSearchCommand( const QUrl& url )
 {
     // open the super collection and set this as the search filter
     QString queryStr;
-    if ( url.hasQueryItem( "query" ) )
-        queryStr = url.queryItemValue( "query" );
+    if ( urlHasQueryItem( url, "query" ) )
+        queryStr = urlQueryItemValue( url, "query" );
     else
     {
         QStringList query;
-        if ( url.hasQueryItem( "artist" ) )
-            query << url.queryItemValue( "artist" );
-        if ( url.hasQueryItem( "album" ) )
-            query << url.queryItemValue( "album" );
-        if ( url.hasQueryItem( "title" ) )
-            query << url.queryItemValue( "title" );
+        if ( urlHasQueryItem( url, "artist" ) )
+            query << urlQueryItemValue( url, "artist" );
+        if ( urlHasQueryItem( url, "album" ) )
+            query << urlQueryItemValue( url, "album" );
+        if ( urlHasQueryItem( url, "title" ) )
+            query << urlQueryItemValue( url, "title" );
         queryStr = query.join( " " );
     }
 
@@ -798,19 +810,21 @@ bool
 GlobalActionManager::handleViewCommand( const QUrl& url )
 {
     QStringList parts = url.path().split( "/" ).mid( 1 ); // get the rest of the command
-    if ( parts.isEmpty() ) {
+    if ( parts.isEmpty() )
+    {
         tLog() << "No specific view command:" << url.toString();
         return false;
     }
 
     if ( parts[ 0 ] == "artist" )
     {
-        const QString artist = url.queryItemValue( "name" );
+        const QString artist = urlQueryItemValue( url, "name" );
         if ( artist.isEmpty() )
         {
-            tLog() << "Not artist supplied for view/artist command.";
+            tLog() << "No artist supplied for view/artist command.";
             return false;
         }
+
         artist_ptr artistPtr = Artist::get( artist );
         if ( !artistPtr.isNull() )
             ViewManager::instance()->show( artistPtr );
@@ -819,16 +833,34 @@ GlobalActionManager::handleViewCommand( const QUrl& url )
     }
     else if ( parts[ 0 ] == "album" )
     {
-        const QString artist = url.queryItemValue( "artist" );
-        const QString album = url.queryItemValue( "name" );
+        const QString artist = urlQueryItemValue( url, "artist" );
+        const QString album = urlQueryItemValue( url, "name" );
         if ( artist.isEmpty() || album.isEmpty() )
         {
-            tLog() << "Not artist or album supplied for view/artist command:" << url;
+            tLog() << "No artist or album supplied for view/album command:" << url;
             return false;
         }
+
         album_ptr albumPtr = Album::get( Artist::get( artist, false ), album, false );
         if ( !albumPtr.isNull() )
             ViewManager::instance()->show( albumPtr );
+
+        return true;
+    }
+    else if ( parts[ 0 ] == "track" )
+    {
+        const QString artist = urlQueryItemValue( url, "artist" );
+        const QString album = urlQueryItemValue( url, "album" );
+        const QString track = urlQueryItemValue( url, "track" );
+        if ( artist.isEmpty() || track.isEmpty() )
+        {
+            tLog() << "No artist or track supplied for view/track command:" << url;
+            return false;
+        }
+
+        query_ptr queryPtr = Query::get( artist, track, album );
+        if ( !queryPtr.isNull() )
+            ViewManager::instance()->show( queryPtr );
 
         return true;
     }
@@ -856,13 +888,13 @@ GlobalActionManager::loadDynamicPlaylist( const QUrl& url, bool station )
 
     if ( parts[ 0 ] == "create" )
     {
-        if ( !url.hasQueryItem( "title" ) || !url.hasQueryItem( "type" ) )
+        if ( !urlHasQueryItem( url, "title" ) || !urlHasQueryItem( url, "type" ) )
         {
             tLog() << "Station create command needs title and type..." << url.toString();
             return Tomahawk::dynplaylist_ptr();
         }
-        QString title = url.queryItemValue( "title" );
-        QString type = url.queryItemValue( "type" );
+        QString title = urlQueryItemValue( url, "title" );
+        QString type = urlQueryItemValue( url, "type" );
         GeneratorMode m = Static;
         if ( station )
             m = OnDemand;
@@ -871,7 +903,7 @@ GlobalActionManager::loadDynamicPlaylist( const QUrl& url, bool station )
         pl->setMode( m );
         QList< dyncontrol_ptr > controls;
         QPair< QString, QString > param;
-        foreach ( param, url.queryItems() )
+        foreach ( param, urlQueryItems( url ) )
         {
             if ( param.first == "artist" )
             {
@@ -1057,7 +1089,7 @@ GlobalActionManager::handlePlayCommand( const QUrl& url )
 
         QPair< QString, QString > pair;
         QString title, artist, album, urlStr;
-        foreach ( pair, url.queryItems() )
+        foreach ( pair, urlQueryItems( url ) )
         {
             if ( pair.first == "title" )
                 title = pair.second;
@@ -1074,7 +1106,10 @@ GlobalActionManager::handlePlayCommand( const QUrl& url )
             return false;
 
         if ( !urlStr.isEmpty() )
+        {
             q->setResultHint( urlStr );
+            q->setSaveHTTPResultHint( true );
+        }
 
         playNow( q );
         return true;
@@ -1087,20 +1122,20 @@ GlobalActionManager::handlePlayCommand( const QUrl& url )
 bool
 GlobalActionManager::playSpotify( const QUrl& url )
 {
-    if ( !url.hasQueryItem( "spotifyURI" ) && !url.hasQueryItem( "spotifyURL" ) )
+    if ( !urlHasQueryItem( url, "spotifyURI" ) && !urlHasQueryItem( url, "spotifyURL" ) )
         return false;
 
-    QString spotifyUrl = url.hasQueryItem( "spotifyURI" ) ? url.queryItemValue( "spotifyURI" ) : url.queryItemValue( "spotifyURL" );
+    QString spotifyUrl = urlHasQueryItem( url, "spotifyURI" ) ? urlQueryItemValue( url, "spotifyURI" ) : urlQueryItemValue( url, "spotifyURL" );
     SpotifyParser* p = new SpotifyParser( spotifyUrl, this );
     connect( p, SIGNAL( track( Tomahawk::query_ptr ) ), this, SLOT( playOrQueueNow( Tomahawk::query_ptr ) ) );
 
     return true;
 }
 
+
 void
 GlobalActionManager::playNow( const query_ptr& q )
 {
-
     Pipeline::instance()->resolve( q, true );
 
     m_waitingToPlay = q;
@@ -1122,10 +1157,10 @@ GlobalActionManager::playOrQueueNow( const query_ptr& q )
 bool
 GlobalActionManager::playRdio( const QUrl& url )
 {
-    if ( !url.hasQueryItem( "rdioURI" ) && !url.hasQueryItem( "rdioURL" ) )
+    if ( !urlHasQueryItem( url, "rdioURI" ) && !urlHasQueryItem( url, "rdioURL" ) )
         return false;
 
-    QString rdioUrl = url.hasQueryItem( "rdioURI" ) ? url.queryItemValue( "spotifyURI" ) : url.queryItemValue( "rdioURL" );
+    QString rdioUrl = urlHasQueryItem( url, "rdioURI" ) ? urlQueryItemValue( url, "spotifyURI" ) : urlQueryItemValue( url, "rdioURL" );
     RdioParser* p = new RdioParser( this );
     p->parse( rdioUrl );
     connect( p, SIGNAL( track( Tomahawk::query_ptr ) ), this, SLOT( playOrQueueNow( Tomahawk::query_ptr ) ) );
@@ -1149,7 +1184,7 @@ bool GlobalActionManager::handleBookmarkCommand(const QUrl& url)
     {
         QPair< QString, QString > pair;
         QString title, artist, album, urlStr;
-        foreach ( pair, url.queryItems() )
+        foreach ( pair, urlQueryItems( url ) )
         {
             if ( pair.first == "title" )
                 title = pair.second;
@@ -1165,8 +1200,11 @@ bool GlobalActionManager::handleBookmarkCommand(const QUrl& url)
             return false;
 
         if ( !urlStr.isEmpty() )
+        {
             q->setResultHint( urlStr );
-        Pipeline::instance()->resolve( q );
+            q->setSaveHTTPResultHint( true );
+        }
+        Pipeline::instance()->resolve( q, true );
 
         // now we add it to the special "bookmarks" playlist, creating it if it doesn't exist. if nothing is playing, start playing the track
         QSharedPointer< LocalCollection > col = SourceList::instance()->getLocal()->collection().dynamicCast< LocalCollection >();
@@ -1254,10 +1292,8 @@ GlobalActionManager::postShortenFinished()
     QNetworkReply* reply = qobject_cast<QNetworkReply*>( sender() );
     Q_ASSERT( reply );
     const QByteArray raw = reply->readAll();
-    qDebug() << "GOT REPLYL" << raw;
 
     const QUrl url = QUrl::fromUserInput( raw );
-    qDebug() << "GOT POSTED SHORT URL:" << url.toString();
     QClipboard* cb = QApplication::clipboard();
 
     const QByteArray data = percentEncode( url );
@@ -1272,8 +1308,7 @@ GlobalActionManager::postShortenFinished()
 void
 GlobalActionManager::shortenLinkRequestError( QNetworkReply::NetworkError error )
 {
-    qDebug() << Q_FUNC_INFO;
-    qDebug() << "Network Error: " << error;
+    tDebug() << Q_FUNC_INFO << "Network Error:" << error;
 
     QNetworkReply *reply = qobject_cast<QNetworkReply*>( sender() );
 
@@ -1401,13 +1436,12 @@ GlobalActionManager::hostname() const
 
 
 QByteArray
-GlobalActionManager::percentEncode (const QUrl &url ) const
+GlobalActionManager::percentEncode( const QUrl& url ) const
 {
     QByteArray data = url.toEncoded();
 
     data.replace( "'", "%27" ); // QUrl doesn't encode ', which it doesn't have to. Some apps don't like ' though, and want %27. Both are valid.
     data.replace( "%20", "+" );
-    data.replace( "&", "%26" );
 
     return data;
 }

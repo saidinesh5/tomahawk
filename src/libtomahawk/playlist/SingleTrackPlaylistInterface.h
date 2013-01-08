@@ -32,23 +32,28 @@ class DLLEXPORT SingleTrackPlaylistInterface : public PlaylistInterface
 {
     Q_OBJECT
 public:
-    explicit SingleTrackPlaylistInterface( const query_ptr& query )
-        : PlaylistInterface()
-        , m_track( query )
-    {
-    }
+    explicit SingleTrackPlaylistInterface( const query_ptr& query );
 
     query_ptr track() const { return m_track; }
     void setQuery( const query_ptr& track ) { m_track = track; }
 
-    virtual result_ptr currentItem() const { return result_ptr(); }
+    virtual void setCurrentIndex( qint64 index ) { Q_UNUSED( index ); }
+    virtual result_ptr currentItem() const;
+
+    virtual Tomahawk::result_ptr resultAt( qint64 index ) const;
+    virtual Tomahawk::query_ptr queryAt( qint64 index ) const;
+    virtual qint64 indexOfResult( const Tomahawk::result_ptr& result ) const;
+    virtual qint64 indexOfQuery( const Tomahawk::query_ptr& query ) const;
+
     virtual PlaylistModes::RepeatMode repeatMode() const { return PlaylistModes::NoRepeat; }
     virtual void setRepeatMode( PlaylistModes::RepeatMode ) {}
-    virtual void setShuffled( bool ) {}
+
     virtual bool shuffled() const { return false; }
-    virtual result_ptr siblingItem( int itemsAway ) { return result_ptr(); }
+    virtual void setShuffled( bool ) {}
+
+    virtual qint64 siblingIndex( int, qint64 rootIndex = -1 ) const { Q_UNUSED( rootIndex ); return -1; }
     virtual int trackCount() const { return 1; }
-    virtual QList< query_ptr > tracks() { return QList< query_ptr >(); }
+    virtual QList< query_ptr > tracks() const;
 
 private:
     query_ptr m_track;

@@ -20,9 +20,12 @@
 #include "AudioControls.h"
 #include "ui_AudioControls.h"
 
-#include <QtNetwork/QNetworkReply>
-#include <QtGui/QDropEvent>
-#include <QtGui/QMouseEvent>
+#include "Album.h"
+#include "DropJob.h"
+#include "SocialWidget.h"
+#include "GlobalActionManager.h"
+#include "ViewManager.h"
+#include "Source.h"
 
 #include "audio/AudioEngine.h"
 #include "playlist/PlaylistView.h"
@@ -30,12 +33,14 @@
 #include "widgets/ImageButton.h"
 #include "utils/TomahawkUtilsGui.h"
 #include "utils/Logger.h"
-#include "Album.h"
-#include "DropJob.h"
-#include "SocialWidget.h"
-#include "GlobalActionManager.h"
-#include "ViewManager.h"
-#include "Source.h"
+
+#include <QNetworkReply>
+#include <QDropEvent>
+#include <QMouseEvent>
+#include <QDesktopServices>
+#include <QGraphicsDropShadowEffect>
+
+const static int ALLOWED_MAX_DIVERSION = 300;
 
 using namespace Tomahawk;
 
@@ -52,48 +57,45 @@ AudioControls::AudioControls( QWidget* parent )
     setAcceptDrops( true );
 
     QFont font( ui->artistTrackLabel->font() );
-    font.setPixelSize( 12 );
+    font.setPointSize( TomahawkUtils::defaultFontSize() + 1 );
+    font.setWeight( QFont::Bold );
 
     ui->artistTrackLabel->setFont( font );
     ui->artistTrackLabel->setElideMode( Qt::ElideMiddle );
-    ui->artistTrackLabel->setType( QueryLabel::ArtistAndTrack );
+    ui->artistTrackLabel->setType( QueryLabel::Track );
     ui->artistTrackLabel->setJumpLinkVisible( true );
 
+    font.setPointSize( TomahawkUtils::defaultFontSize() );
     ui->albumLabel->setFont( font );
-    ui->albumLabel->setType( QueryLabel::Album );
+    ui->albumLabel->setType( QueryLabel::ArtistAndAlbum );
 
+    font.setWeight( QFont::Normal );
     ui->timeLabel->setFont( font );
     ui->timeLeftLabel->setFont( font );
 
-    font.setPixelSize( 9 );
-    ui->ownerLabel->setFont( font );
-
-    ui->prevButton->setPixmap( RESPATH "images/back-rest.png" );
-    ui->prevButton->setPixmap( RESPATH "images/back-pressed.png", QIcon::Off, QIcon::Active );
-    ui->playPauseButton->setPixmap( RESPATH "images/play-rest.png" );
-    ui->playPauseButton->setPixmap( RESPATH "images/play-pressed.png", QIcon::Off, QIcon::Active );
-    ui->pauseButton->setPixmap( RESPATH "images/pause-rest.png" );
-    ui->pauseButton->setPixmap( RESPATH "images/pause-pressed.png", QIcon::Off, QIcon::Active );
-    ui->nextButton->setPixmap( RESPATH "images/skip-rest.png" );
-    ui->nextButton->setPixmap( RESPATH "images/skip-pressed.png", QIcon::Off, QIcon::Active );
-    ui->shuffleButton->setPixmap( RESPATH "images/shuffle-off-rest.png" );
-    ui->shuffleButton->setPixmap( RESPATH "images/shuffle-off-pressed.png", QIcon::Off, QIcon::Active );
-    ui->repeatButton->setPixmap( RESPATH "images/repeat-off-rest.png" );
-    ui->repeatButton->setPixmap( RESPATH "images/repeat-off-pressed.png", QIcon::Off, QIcon::Active );
-    ui->volumeLowButton->setPixmap( RESPATH "images/volume-icon-muted.png" );
-    ui->volumeHighButton->setPixmap( RESPATH "images/volume-icon-full.png" );
-    ui->socialButton->setPixmap( RESPATH "images/share.png" );
-    ui->loveButton->setPixmap( RESPATH "images/not-loved.png" );
+    ui->ownerButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::DefaultResolver, TomahawkUtils::Original, QSize( 34, 34 ) ) );
+    ui->prevButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::PrevButton, TomahawkUtils::Original, QSize( 35, 35 ) ) );
+    ui->prevButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::PrevButtonPressed, TomahawkUtils::Original, QSize( 35, 35 ) ), QIcon::Off, QIcon::Active );
+    ui->playPauseButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::PlayButton, TomahawkUtils::Original, QSize( 48, 48 ) ) );
+    ui->playPauseButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::PlayButtonPressed, TomahawkUtils::Original, QSize( 48, 48 ) ), QIcon::Off, QIcon::Active );
+    ui->pauseButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::PauseButton, TomahawkUtils::Original, QSize( 48, 48 ) ) );
+    ui->pauseButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::PauseButtonPressed, TomahawkUtils::Original, QSize( 48, 48 ) ), QIcon::Off, QIcon::Active );
+    ui->nextButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::NextButton, TomahawkUtils::Original, QSize( 35, 35 ) ) );
+    ui->nextButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::NextButtonPressed, TomahawkUtils::Original, QSize( 35, 35 ) ), QIcon::Off, QIcon::Active );
+    ui->shuffleButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::ShuffleOff, TomahawkUtils::Original, QSize( 34, 21 ) ) );
+    ui->shuffleButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::ShuffleOffPressed, TomahawkUtils::Original, QSize( 34, 21 ) ), QIcon::Off, QIcon::Active );
+    ui->repeatButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::RepeatOff, TomahawkUtils::Original, QSize( 34, 21 ) ) );
+    ui->repeatButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::RepeatOffPressed, TomahawkUtils::Original, QSize( 34, 21 ) ), QIcon::Off, QIcon::Active );
+    ui->volumeLowButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::VolumeMuted, TomahawkUtils::Original, QSize( 18, 18 ) ) );
+    ui->volumeHighButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::VolumeFull, TomahawkUtils::Original, QSize( 22, 18 ) ) );
+    ui->socialButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::Share, TomahawkUtils::Original, QSize( 20, 20 ) ) );
+    ui->loveButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::NotLoved, TomahawkUtils::Original, QSize( 20, 20 ) ) );
     ui->loveButton->setCheckable( true );
 
     ui->socialButton->setFixedSize( QSize( 20, 20 ) );
     ui->loveButton->setFixedSize( QSize( 20, 20 ) );
+    ui->ownerButton->setFixedSize( QSize( 34, 34 ) );
 
-#ifdef Q_WS_MAC
-    ui->ownerLabel->setForegroundRole( QPalette::Text );
-#else
-    ui->ownerLabel->setForegroundRole( QPalette::Dark );
-#endif
     ui->metaDataArea->setStyleSheet( "QWidget#metaDataArea {\nborder-width: 4px;\nborder-image: url(" RESPATH "images/now-playing-panel.png) 4 4 4 4 stretch stretch; }" );
 
     ui->seekSlider->setEnabled( true );
@@ -121,11 +123,12 @@ AudioControls::AudioControls( QWidget* parent )
     connect( ui->repeatButton,     SIGNAL( clicked() ), SLOT( onRepeatClicked() ) );
     connect( ui->shuffleButton,    SIGNAL( clicked() ), SLOT( onShuffleClicked() ) );
 
-    connect( ui->artistTrackLabel, SIGNAL( clickedArtist() ), SLOT( onArtistClicked() ) );
+    connect( ui->albumLabel,       SIGNAL( clickedArtist() ), SLOT( onArtistClicked() ) );
     connect( ui->artistTrackLabel, SIGNAL( clickedTrack() ),  SLOT( onTrackClicked() ) );
     connect( ui->albumLabel,       SIGNAL( clickedAlbum() ),  SLOT( onAlbumClicked() ) );
     connect( ui->socialButton,     SIGNAL( clicked() ),       SLOT( onSocialButtonClicked() ) );
     connect( ui->loveButton,       SIGNAL( clicked( bool ) ), SLOT( onLoveButtonClicked( bool ) ) );
+    connect( ui->ownerButton,      SIGNAL( clicked() ),       SLOT( onOwnerButtonClicked() ) );
 
     // <From AudioEngine>
     connect( AudioEngine::instance(), SIGNAL( loading( Tomahawk::result_ptr ) ), SLOT( onPlaybackLoading( Tomahawk::result_ptr ) ) );
@@ -136,6 +139,9 @@ AudioControls::AudioControls( QWidget* parent )
     connect( AudioEngine::instance(), SIGNAL( seeked( qint64 ) ), SLOT( onPlaybackSeeked( qint64 ) ) );
     connect( AudioEngine::instance(), SIGNAL( timerMilliSeconds( qint64 ) ), SLOT( onPlaybackTimer( qint64 ) ) );
     connect( AudioEngine::instance(), SIGNAL( volumeChanged( int ) ), SLOT( onVolumeChanged( int ) ) );
+    connect( AudioEngine::instance(), SIGNAL( controlStateChanged() ), SLOT( onControlStateChanged() ) );
+    connect( AudioEngine::instance(), SIGNAL( repeatModeChanged( Tomahawk::PlaylistModes::RepeatMode ) ), SLOT( onRepeatModeChanged( Tomahawk::PlaylistModes::RepeatMode ) ) );
+    connect( AudioEngine::instance(), SIGNAL( shuffleModeChanged( bool ) ), SLOT( onShuffleModeChanged( bool ) ) );
 
     ui->buttonAreaLayout->setSpacing( 0 );
     ui->stackedLayout->setSpacing( 0 );
@@ -188,6 +194,22 @@ AudioControls::onVolumeChanged( int volume )
 
 
 void
+AudioControls::onControlStateChanged()
+{
+    tDebug() << Q_FUNC_INFO;
+
+    if ( QThread::currentThread() != thread() )
+    {
+        tDebug() << Q_FUNC_INFO << "Reinvoking in correct thread!";
+        QMetaObject::invokeMethod( this, "onControlStateChanged", Qt::QueuedConnection );
+    }
+
+    ui->prevButton->setEnabled( AudioEngine::instance()->canGoPrevious() );
+    ui->nextButton->setEnabled( AudioEngine::instance()->canGoNext() );
+}
+
+
+void
 AudioControls::onPlaybackStarted( const Tomahawk::result_ptr& result )
 {
     if ( result.isNull() )
@@ -205,22 +227,17 @@ AudioControls::onPlaybackStarted( const Tomahawk::result_ptr& result )
     ui->seekSlider->setValue( 0 );
     ui->seekSlider->setEnabled( AudioEngine::instance()->canSeek() );
 
-    m_phononTickCheckTimer.stop();
-
-    m_sliderTimeLine.stop();
     m_sliderTimeLine.setDuration( duration );
     m_sliderTimeLine.setFrameRange( 0, duration );
     m_sliderTimeLine.setCurveShape( QTimeLine::LinearCurve );
     m_sliderTimeLine.setCurrentTime( 0 );
-    m_seekMsecs = -1;
-
-    ui->seekSlider->setVisible( true );
+    m_seeked = false;
 
     int updateRate = (double)1000 / ( (double)ui->seekSlider->contentsRect().width() / (double)( duration / 1000 ) );
     m_sliderTimeLine.setUpdateInterval( qBound( 40, updateRate, 500 ) );
 
-    m_noTimeChange = false;
     m_lastSliderCheck = 0;
+    m_phononTickCheckTimer.start( 500 );
 }
 
 
@@ -239,7 +256,6 @@ AudioControls::onPlaybackLoading( const Tomahawk::result_ptr& result )
 
     ui->artistTrackLabel->setResult( result );
     ui->albumLabel->setResult( result );
-    ui->ownerLabel->setText( result->friendlySource() );
 
     const QString duration = TomahawkUtils::timeToString( result.data()->duration() );
     ui->timeLabel->setFixedWidth( ui->timeLabel->fontMetrics().width( QString( duration.length(), QChar( '0' ) ) ) );
@@ -254,6 +270,42 @@ AudioControls::onPlaybackLoading( const Tomahawk::result_ptr& result )
     ui->loveButton->setVisible( true );
     ui->socialButton->setEnabled( true );
     ui->socialButton->setVisible( true );
+    ui->ownerButton->setEnabled( true );
+    ui->ownerButton->setVisible( true );
+
+    ui->timeLabel->setToolTip( tr( "Time Elapsed" ) );
+    ui->timeLeftLabel->setToolTip( tr( "Time Remaining" ) );
+    ui->shuffleButton->setToolTip( tr( "Shuffle" ) );
+    ui->repeatButton->setToolTip( tr( "Repeat" ) );
+    ui->socialButton->setToolTip( tr( "Share" ) );
+    ui->loveButton->setToolTip( tr( "Love" ) );
+    ui->ownerButton->setToolTip( QString( tr( "Playing from %1" ) ).arg( result->friendlySource() ) );
+
+    ui->seekSlider->setRange( 0, 0 );
+    ui->seekSlider->setValue( 0 );
+    ui->seekSlider->setVisible( true );
+    m_sliderTimeLine.stop();
+
+    // If the ViewManager doesn't know a page for the current interface, we can't offer the jump link
+    ui->artistTrackLabel->setJumpLinkVisible( ( ViewManager::instance()->pageForInterface( AudioEngine::instance()->currentTrackPlaylist() ) ) );
+
+    onControlStateChanged();
+
+    QPixmap sourceIcon = result->sourceIcon( TomahawkUtils::RoundedCorners, ui->ownerButton->size() );
+    if ( !sourceIcon.isNull() )
+    {
+        ui->ownerButton->setPixmap( sourceIcon );
+    }
+    else
+    {
+        ui->ownerButton->clear();
+        ui->ownerButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::DefaultResolver, TomahawkUtils::Original, QSize( 34, 34 ) ) );
+    }
+
+    if ( QUrl( result->linkUrl() ).isValid() || !result->collection().isNull() )
+        ui->ownerButton->setCursor( Qt::PointingHandCursor );
+    else
+        ui->ownerButton->setCursor( Qt::ArrowCursor );
 
     setCover();
     setSocialActions();
@@ -278,10 +330,10 @@ AudioControls::setCover()
     {
         QPixmap cover;
         cover = m_currentTrack->toQuery()->cover( ui->coverImage->size() );
-        ui->coverImage->setPixmap( cover, false );
+        ui->coverImage->setPixmap( TomahawkUtils::createRoundedImage( cover, QSize( 0, 0 ) ), false );
     }
     else
-        ui->coverImage->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::DefaultAlbumCover, TomahawkUtils::ScaledCover, ui->coverImage->size() ), true );
+        ui->coverImage->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::DefaultAlbumCover, TomahawkUtils::Original, ui->coverImage->size() ), true );
 }
 
 
@@ -301,12 +353,12 @@ AudioControls::setSocialActions()
 {
     if ( m_currentTrack->toQuery()->loved() )
     {
-        ui->loveButton->setPixmap( RESPATH "images/loved.png" );
+        ui->loveButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::Loved, TomahawkUtils::Original, QSize( 20, 20 ) ) );
         ui->loveButton->setChecked( true );
     }
     else
     {
-        ui->loveButton->setPixmap( RESPATH "images/not-loved.png" );
+        ui->loveButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::NotLoved, TomahawkUtils::Original, QSize( 20, 20 ) ) );
         ui->loveButton->setChecked( false );
     }
 }
@@ -326,18 +378,15 @@ AudioControls::onPlaybackResumed()
 {
     tDebug( LOGEXTRA ) << Q_FUNC_INFO;
     ui->stackedLayout->setCurrentWidget( ui->pauseButton );
-    m_sliderTimeLine.resume();
 }
 
 
 void
 AudioControls::onPlaybackSeeked( qint64 msec )
 {
-    tDebug( LOGEXTRA ) << Q_FUNC_INFO << " setting current timer to " << msec;
-    m_sliderTimeLine.setPaused( true );
-    m_sliderTimeLine.setCurrentTime( msec );
-    m_lastSliderCheck = msec;
-    m_seekMsecs = msec;
+    tDebug( LOGEXTRA ) << Q_FUNC_INFO;
+    m_seeked = true;
+    onPlaybackTimer( msec );
 }
 
 
@@ -349,37 +398,41 @@ AudioControls::onPlaybackStopped()
 
     ui->artistTrackLabel->setText( "" );
     ui->albumLabel->setText( "" );
-    ui->ownerLabel->setText( "" );
     ui->timeLabel->setText( "" );
     ui->timeLeftLabel->setText( "" );
     ui->coverImage->setPixmap( QPixmap(), false );
     ui->seekSlider->setVisible( false );
     m_sliderTimeLine.stop();
     m_sliderTimeLine.setCurrentTime( 0 );
+    m_phononTickCheckTimer.stop();
+    ui->ownerButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::DefaultResolver, TomahawkUtils::Original, QSize( 34, 34 ) ) );
 
     ui->stackedLayout->setCurrentWidget( ui->playPauseButton );
     ui->loveButton->setEnabled( false );
     ui->loveButton->setVisible( false );
     ui->socialButton->setEnabled( false );
     ui->socialButton->setVisible( false );
+    ui->ownerButton->setEnabled( false );
+    ui->ownerButton->setVisible( false );
+
+    ui->timeLabel->setToolTip( "" );
+    ui->timeLeftLabel->setToolTip( "" );
+    ui->shuffleButton->setToolTip( "" );
+    ui->repeatButton->setToolTip( "" );
+    ui->socialButton->setToolTip( "" );
+    ui->loveButton->setToolTip( "" );
+    ui->ownerButton->setToolTip( "" );
+
+    onControlStateChanged();
 }
 
 
 void
 AudioControls::onPlaybackTimer( qint64 msElapsed )
 {
-    const int seconds = msElapsed / 1000;
-    if ( seconds != m_lastTextSecondShown && !m_currentTrack.isNull() )
-    {
-        ui->timeLabel->setText( TomahawkUtils::timeToString( seconds ) );
-        ui->timeLeftLabel->setText( "-" + TomahawkUtils::timeToString( m_currentTrack->duration() - seconds ) );
-        m_lastTextSecondShown = seconds;
-    }
+    //tDebug() << Q_FUNC_INFO;
 
-    //tDebug( LOGEXTRA ) << Q_FUNC_INFO << "msElapsed =" << msElapsed << "and timer current time =" << m_sliderTimeLine.currentTime() << "and m_seekMsecs =" << m_seekMsecs;
-    if ( msElapsed > 0 && msElapsed != m_lastSliderCheck && m_seekMsecs == -1 && msElapsed - 500 < m_lastSliderCheck )
-        return;
-    m_lastSliderCheck = msElapsed;
+    m_phononTickCheckTimer.stop();
 
     if ( m_currentTrack.isNull() )
     {
@@ -387,46 +440,80 @@ AudioControls::onPlaybackTimer( qint64 msElapsed )
         return;
     }
 
-    ui->seekSlider->blockSignals( true );
+    const int seconds = msElapsed / 1000;
+    if ( seconds != m_lastTextSecondShown )
+    {
+        ui->timeLabel->setText( TomahawkUtils::timeToString( seconds ) );
+        ui->timeLeftLabel->setText( "-" + TomahawkUtils::timeToString( m_currentTrack->duration() - seconds ) );
+        m_lastTextSecondShown = seconds;
+    }
 
-    if ( sender() != &m_phononTickCheckTimer )
-        m_phononTickCheckTimer.start( 1000 );
+    m_phononTickCheckTimer.start( 500 );
+
+    if ( msElapsed == 0 )
+        return;
 
     int currentTime = m_sliderTimeLine.currentTime();
-    if ( m_noTimeChange )
+    //tDebug( LOGEXTRA ) << Q_FUNC_INFO << "msElapsed =" << msElapsed << "and timer current time =" << m_sliderTimeLine.currentTime();
+
+    // First condition checks for the common case where
+    // 1) the track has been started
+    // 2) we haven't seeked,
+    // 3) the timeline is pretty close to the actual time elapsed, within ALLOWED_MAX_DIVERSIONmsec, so no adustment needed, and
+    // 4) The audio engine is actually currently running
+    if ( msElapsed > 0
+            && !m_seeked
+            && qAbs( msElapsed - currentTime ) <= ALLOWED_MAX_DIVERSION
+            && AudioEngine::instance()->state() == AudioEngine::Playing )
     {
-        if ( currentTime != msElapsed )
+        if ( m_sliderTimeLine.state() != QTimeLine::Running )
+            m_sliderTimeLine.resume();
+        m_lastSliderCheck = msElapsed;
+        return;
+    }
+    else
+    {
+        //tDebug() << Q_FUNC_INFO << "Fallthrough";
+        // If we're in here we're offset, so we need to do some munging around
+        ui->seekSlider->blockSignals( true );
+
+        // First handle seeks
+        if ( m_seeked )
         {
+            //tDebug() << Q_FUNC_INFO << "Seeked";
             m_sliderTimeLine.setPaused( true );
-            m_noTimeChange = false;
             m_sliderTimeLine.setCurrentTime( msElapsed );
-            m_seekMsecs = -1;
-            m_sliderTimeLine.resume();
+            m_seeked = false;
+            if ( AudioEngine::instance()->state() == AudioEngine::Playing )
+                m_sliderTimeLine.resume();
         }
+        // Next handle falling behind by too much, or getting ahead by too much (greater than allowed amount, which would have been sorted above)
+        // However, a Phonon bug means that after a seek we'll actually have AudioEngine's state be Playing, when it ain't, so have to detect that
+        else if ( AudioEngine::instance()->state() == AudioEngine::Playing )
+        {
+            //tDebug() << Q_FUNC_INFO << "AudioEngine playing";
+            m_sliderTimeLine.setPaused( true );
+            m_sliderTimeLine.setCurrentTime( msElapsed );
+            if ( msElapsed != m_lastSliderCheck )
+                m_sliderTimeLine.resume();
+        }
+        // Finally, the case where the audioengine isn't playing; if the timeline is still running, pause it and catch up
+        else if ( AudioEngine::instance()->state() != AudioEngine::Playing )
+        {
+            //tDebug() << Q_FUNC_INFO << "AudioEngine not playing";
+            if ( msElapsed != currentTime || m_sliderTimeLine.state() == QTimeLine::Running)
+            {
+                m_sliderTimeLine.setPaused( true );
+                m_sliderTimeLine.setCurrentTime( msElapsed );
+            }
+        }
+        else
+        {
+            tDebug() << Q_FUNC_INFO << "What to do? How could we even get here?";
+        }
+        m_lastSliderCheck = msElapsed;
+        ui->seekSlider->blockSignals( false );
     }
-    else if ( currentTime >= msElapsed || m_seekMsecs != -1 )
-    {
-        m_sliderTimeLine.setPaused( true );
-
-        m_noTimeChange = false;
-        if ( currentTime == msElapsed )
-            m_noTimeChange = true;
-
-        m_sliderTimeLine.setCurrentTime( msElapsed );
-        m_seekMsecs = -1;
-        if ( AudioEngine::instance()->state() != AudioEngine::Paused && sender() != &m_phononTickCheckTimer )
-            m_sliderTimeLine.resume();
-    }
-    else if ( m_sliderTimeLine.duration() > msElapsed && m_sliderTimeLine.state() == QTimeLine::NotRunning && AudioEngine::instance()->state() == AudioEngine::Playing )
-    {
-        m_sliderTimeLine.start();
-    }
-    else if ( m_sliderTimeLine.state() == QTimeLine::Paused && AudioEngine::instance()->state() != AudioEngine::Paused )
-    {
-        m_sliderTimeLine.resume();
-    }
-
-    ui->seekSlider->blockSignals( false );
 }
 
 
@@ -440,30 +527,32 @@ AudioControls::onRepeatModeChanged( PlaylistModes::RepeatMode mode )
         case PlaylistModes::NoRepeat:
         {
             // switch to RepeatOne
-            ui->repeatButton->setPixmap( RESPATH "images/repeat-off-rest.png" );
-            ui->repeatButton->setPixmap( RESPATH "images/repeat-off-pressed.png", QIcon::Off, QIcon::Active );
+            ui->repeatButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::RepeatOff, TomahawkUtils::Original, QSize( 34, 21 ) ) );
+            ui->repeatButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::RepeatOffPressed, TomahawkUtils::Original, QSize( 34, 21 ) ), QIcon::Off, QIcon::Active );
         }
         break;
 
         case PlaylistModes::RepeatOne:
         {
             // switch to RepeatAll
-            ui->repeatButton->setPixmap( RESPATH "images/repeat-1-on-rest.png" );
-            ui->repeatButton->setPixmap( RESPATH "images/repeat-1-on-pressed.png", QIcon::Off, QIcon::Active );
+            ui->repeatButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::RepeatOne, TomahawkUtils::Original, QSize( 34, 21 ) ) );
+            ui->repeatButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::RepeatOnePressed, TomahawkUtils::Original, QSize( 34, 21 ) ), QIcon::Off, QIcon::Active );
         }
         break;
 
         case PlaylistModes::RepeatAll:
         {
             // switch to NoRepeat
-            ui->repeatButton->setPixmap( RESPATH "images/repeat-all-on-rest.png" );
-            ui->repeatButton->setPixmap( RESPATH "images/repeat-all-on-pressed.png", QIcon::Off, QIcon::Active );
+            ui->repeatButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::RepeatAll, TomahawkUtils::Original, QSize( 34, 21 ) ) );
+            ui->repeatButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::RepeatAllPressed, TomahawkUtils::Original, QSize( 34, 21 ) ), QIcon::Off, QIcon::Active );
         }
         break;
 
         default:
             break;
     }
+
+    onControlStateChanged();
 }
 
 
@@ -475,21 +564,21 @@ AudioControls::onRepeatClicked()
         case PlaylistModes::NoRepeat:
         {
             // switch to RepeatOne
-            ViewManager::instance()->setRepeatMode( PlaylistModes::RepeatOne );
+            AudioEngine::instance()->setRepeatMode( PlaylistModes::RepeatOne );
         }
         break;
 
         case PlaylistModes::RepeatOne:
         {
             // switch to RepeatAll
-            ViewManager::instance()->setRepeatMode( PlaylistModes::RepeatAll );
+            AudioEngine::instance()->setRepeatMode( PlaylistModes::RepeatAll );
         }
         break;
 
         case PlaylistModes::RepeatAll:
         {
             // switch to NoRepeat
-            ViewManager::instance()->setRepeatMode( PlaylistModes::NoRepeat );
+            AudioEngine::instance()->setRepeatMode( PlaylistModes::NoRepeat );
         }
         break;
 
@@ -506,25 +595,27 @@ AudioControls::onShuffleModeChanged( bool enabled )
 
     if ( m_shuffled )
     {
-        ui->shuffleButton->setPixmap( RESPATH "images/shuffle-on-rest.png" );
-        ui->shuffleButton->setPixmap( RESPATH "images/shuffle-on-pressed.png", QIcon::Off, QIcon::Active );
+        ui->shuffleButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::ShuffleOn, TomahawkUtils::Original, QSize( 34, 21 ) ) );
+        ui->shuffleButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::ShuffleOnPressed, TomahawkUtils::Original, QSize( 34, 21 ) ), QIcon::Off, QIcon::Active );
 
         ui->repeatButton->setEnabled( false );
     }
     else
     {
-        ui->shuffleButton->setPixmap( RESPATH "images/shuffle-off-rest.png" );
-        ui->shuffleButton->setPixmap( RESPATH "images/shuffle-off-pressed.png", QIcon::Off, QIcon::Active );
+        ui->shuffleButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::ShuffleOff, TomahawkUtils::Original, QSize( 34, 21 ) ) );
+        ui->shuffleButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::ShuffleOffPressed, TomahawkUtils::Original, QSize( 34, 21 ) ), QIcon::Off, QIcon::Active );
 
         ui->repeatButton->setEnabled( true );
     }
+
+    onControlStateChanged();
 }
 
 
 void
 AudioControls::onShuffleClicked()
 {
-    ViewManager::instance()->setShuffled( m_shuffled ^ true );
+    AudioEngine::instance()->setShuffled( m_shuffled ^ true );
 }
 
 
@@ -597,10 +688,14 @@ void
 AudioControls::onSocialButtonClicked()
 {
     if ( !m_socialWidget.isNull() )
-        return;
+        m_socialWidget.data()->close();
 
     m_socialWidget = new SocialWidget( m_parent );
-    m_socialWidget.data()->setPosition( m_socialWidget.data()->mapFromGlobal( QCursor::pos() ) );
+    QPoint socialWidgetPos = ui->socialButton->pos();
+    socialWidgetPos.rx() += ui->socialButton->width() / 2;
+    socialWidgetPos.ry() += 6;
+
+    m_socialWidget.data()->setPosition( ui->metaDataArea->mapToGlobal( socialWidgetPos ) );
     m_socialWidget.data()->setQuery( m_currentTrack->toQuery() );
     m_socialWidget.data()->show();
 }
@@ -611,15 +706,28 @@ AudioControls::onLoveButtonClicked( bool checked )
 {
     if ( checked )
     {
-        ui->loveButton->setPixmap( RESPATH "images/loved.png" );
+        ui->loveButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::Loved, TomahawkUtils::Original, QSize( 20, 20 ) ) );
 
         m_currentTrack->toQuery()->setLoved( true );
     }
     else
     {
-        ui->loveButton->setPixmap( RESPATH "images/not-loved.png" );
+        ui->loveButton->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::NotLoved, TomahawkUtils::Original, QSize( 20, 20 ) ) );
 
         m_currentTrack->toQuery()->setLoved( false );
     }
 }
 
+
+void
+AudioControls::onOwnerButtonClicked()
+{
+    if ( m_currentTrack->collection().isNull() )
+    {
+        QUrl url = QUrl( m_currentTrack->linkUrl() );
+        if ( url.isValid() )
+            QDesktopServices::openUrl( url );
+    }
+    else
+        ViewManager::instance()->show( m_currentTrack->collection() );
+}

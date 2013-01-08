@@ -19,8 +19,6 @@
 
 #include "TreeProxyModel.h"
 
-#include <QtGui/QListView>
-
 #include "TreeProxyModelPlaylistInterface.h"
 #include "Source.h"
 #include "Query.h"
@@ -30,12 +28,14 @@
 #include "PlayableItem.h"
 #include "utils/Logger.h"
 
+#include <QListView>
 
 TreeProxyModel::TreeProxyModel( QObject* parent )
     : PlayableProxyModel( parent )
     , m_artistsFilterCmd( 0 )
     , m_model( 0 )
 {
+    setPlaylistInterface( Tomahawk::playlistinterface_ptr( new Tomahawk::TreeProxyModelPlaylistInterface( this ) ) );
 }
 
 
@@ -347,13 +347,29 @@ TreeProxyModel::textForItem( PlayableItem* item ) const
 }
 
 
-Tomahawk::playlistinterface_ptr
-TreeProxyModel::playlistInterface()
+QModelIndex
+TreeProxyModel::indexFromArtist( const Tomahawk::artist_ptr& artist ) const
 {
-    if ( m_playlistInterface.isNull() )
-    {
-        m_playlistInterface = Tomahawk::playlistinterface_ptr( new Tomahawk::TreeProxyModelPlaylistInterface( this ) );
-    }
+    return mapFromSource( m_model->indexFromArtist( artist ) );
+}
 
-    return m_playlistInterface;
+
+QModelIndex
+TreeProxyModel::indexFromAlbum( const Tomahawk::album_ptr& album ) const
+{
+    return mapFromSource( m_model->indexFromAlbum( album ) );
+}
+
+
+QModelIndex
+TreeProxyModel::indexFromResult( const Tomahawk::result_ptr& result ) const
+{
+    return mapFromSource( m_model->indexFromResult( result ) );
+}
+
+
+QModelIndex
+TreeProxyModel::indexFromQuery( const Tomahawk::query_ptr& query ) const
+{
+    return mapFromSource( m_model->indexFromQuery( query ) );
 }

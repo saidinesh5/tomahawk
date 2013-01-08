@@ -27,13 +27,28 @@
 #include "database/DatabaseCommand_Resolve.h"
 #include "database/DatabaseCommand_AllTracks.h"
 #include "database/DatabaseCommand_AddFiles.h"
+#include "filemetadata/MetadataEditor.h"
 
+#include "utils/TomahawkUtilsGui.h"
 #include "utils/Logger.h"
+#include "ExternalResolverGui.h"
 
 using namespace Tomahawk;
 
 static QHash< QString, QWeakPointer< Result > > s_results;
 static QMutex s_mutex;
+
+typedef QMap< QString, QPixmap > SourceIconCache;
+Q_GLOBAL_STATIC( SourceIconCache, sourceIconCache );
+static QMutex s_sourceIconMutex;
+
+inline QString sourceCacheKey( Resolver* resolver, const QSize& size, TomahawkUtils::ImageMode style )
+{
+    QString str;
+    QTextStream stream( &str );
+    stream << resolver << size.width() << size.height() << "_" << style;
+    return str;
+}
 
 
 Tomahawk::result_ptr
@@ -102,7 +117,7 @@ Result::onResolverRemoved( Tomahawk::Resolver* resolver )
 {
     if ( m_resolvedBy.data() == resolver )
     {
-        m_resolvedBy.clear();
+        m_resolvedBy = 0;
         emit statusChanged();
     }
 }
@@ -197,7 +212,13 @@ Result::toVariant() const
 QString
 Result::toString() const
 {
-    return QString( "Result(%1) %2\t%3 - %4  %5" ).arg( id() ).arg( score() ).arg( artist().isNull() ? QString() : artist()->name() ).arg( track() ).arg( url() );
+    return QString( "Result(%1, score: %2) %3 - %4%5 (%6)" )
+              .arg( id() )
+              .arg( score() )
+              .arg( artist().isNull() ? QString() : artist()->name() )
+              .arg( track() )
+              .arg( album().isNull() || album()->name().isEmpty() ? "" : QString( " on %1" ).arg( album()->name() ) )
+              .arg( url() );
 }
 
 
@@ -294,6 +315,62 @@ Result::friendlySource() const
 }
 
 
+QPixmap
+Result::sourceIcon( TomahawkUtils::ImageMode style, const QSize& desiredSize ) const
+{
+    if ( collection().isNull() )
+    {
+        const ExternalResolverGui* guiResolver = qobject_cast< ExternalResolverGui* >( m_resolvedBy.data() );
+        if ( !guiResolver )
+        {
+            return QPixmap();
+        }
+        else
+        {
+            QMutexLocker l( &s_sourceIconMutex );
+
+            const QString key = sourceCacheKey( m_resolvedBy.data(), desiredSize, style );
+            if ( !sourceIconCache()->contains( key ) )
+            {
+                QPixmap pixmap = guiResolver->icon();
+                if ( !desiredSize.isEmpty() )
+                    pixmap = pixmap.scaled( desiredSize, Qt::KeepAspectRatio, Qt::SmoothTransformation );
+
+                switch ( style )
+                {
+                    case TomahawkUtils::DropShadow:
+                        pixmap = TomahawkUtils::addDropShadow( pixmap, QSize() );
+                        break;
+
+                    case TomahawkUtils::RoundedCorners:
+                        pixmap = TomahawkUtils::createRoundedImage( pixmap, QSize() );
+                        break;
+
+                    default:
+                        break;
+                }
+
+                sourceIconCache()->insert( key, pixmap );
+                return pixmap;
+            }
+            else
+            {
+                return sourceIconCache()->value( key );
+            }
+        }
+    }
+    else
+    {
+        QPixmap avatar = collection()->source()->avatar( TomahawkUtils::RoundedCorners, desiredSize );
+        if ( !avatar )
+        {
+            avatar = TomahawkUtils::defaultPixmap( TomahawkUtils::DefaultSourceAvatar, TomahawkUtils::RoundedCorners, desiredSize );
+        }
+        return avatar;
+    }
+}
+
+
 Tomahawk::Resolver*
 Result::resolvedBy() const
 {
@@ -307,5 +384,13 @@ Result::resolvedBy() const
 void
 Result::setResolvedBy( Tomahawk::Resolver* resolver )
 {
-    m_resolvedBy = QWeakPointer< Tomahawk::Resolver >( resolver );
+    m_resolvedBy = QPointer< Tomahawk::Resolver >( resolver );
+}
+
+
+void
+Result::doneEditing()
+{
+    m_query.clear();
+    emit updated();
 }

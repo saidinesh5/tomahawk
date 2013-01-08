@@ -22,6 +22,8 @@
 #include "accounts/Account.h"
 #include "DllMacro.h"
 
+#include <QPointer>
+
 namespace Tomahawk {
 
 class ExternalResolverGui;
@@ -77,8 +79,9 @@ public:
 
     QString path() const;
 
+    virtual QPixmap icon() const;
+
     // Not relevant
-    virtual QPixmap icon() const { return QPixmap(); }
     virtual SipPlugin* sipPlugin() { return 0; }
     virtual Tomahawk::InfoSystem::InfoPluginPtr infoPlugin() { return Tomahawk::InfoSystem::InfoPluginPtr(); }
     virtual QWidget* aclWidget() { return 0; }
@@ -92,7 +95,7 @@ protected:
 
     void hookupResolver();
 
-    QWeakPointer<ExternalResolverGui> m_resolver;
+    QPointer<ExternalResolverGui> m_resolver;
 
 private:
     void init( const QString& path );
@@ -118,11 +121,16 @@ public:
     QString atticaId() const { return m_atticaId; }
 
     void setPath( const QString& path );
+
+private slots:
+    void resolverIconUpdated( const QString& );
+
+    void loadIcon();
 private:
     // Created by factory, when user installs a new resolver
     AtticaResolverAccount( const QString& accountId, const QString& path, const QString& atticaId );
 
-    void loadIcon();
+    void init();
 
     QPixmap m_icon;
     QString m_atticaId;

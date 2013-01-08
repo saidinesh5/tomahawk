@@ -27,19 +27,23 @@
 #include "items/CategoryItems.h"
 #include "items/TemporaryPageItem.h"
 
-#include "utils/TomahawkUtilsGui.h"
+#include "audio/AudioEngine.h"
 #include "AnimationHelper.h"
 #include "Source.h"
 #include "TomahawkSettings.h"
+#include "ActionCollection.h"
+#include "ViewManager.h"
+#include "ContextMenu.h"
 
-#include <QtGui/QApplication>
-#include <QtGui/QPainter>
-#include <QtGui/QMouseEvent>
-#include <audio/AudioEngine.h>
-#include <ActionCollection.h>
+#include "utils/TomahawkUtilsGui.h"
+#include "utils/Logger.h"
+
+#include <QMimeData>
+#include <QPainter>
+#include <QMouseEvent>
+#include <QApplication>
 
 #define TREEVIEW_INDENT_ADD 12
-
 
 SourceDelegate::SourceDelegate( QAbstractItemView* parent )
     : QStyledItemDelegate( parent )
@@ -58,20 +62,7 @@ SourceDelegate::SourceDelegate( QAbstractItemView* parent )
     m_dropTypeTextMap.insert( 3, tr( "Local" ) );
     m_dropTypeTextMap.insert( 4, tr( "Top 10" ) );
 
-    m_dropTypeImageMap.insert( 0, QPixmap( RESPATH "images/drop-song.png" ).scaledToWidth( 32, Qt::SmoothTransformation ) );
-    m_dropTypeImageMap.insert( 1, QPixmap( RESPATH "images/drop-album.png" ).scaledToWidth( 32, Qt::SmoothTransformation ) );
-    m_dropTypeImageMap.insert( 2, QPixmap( RESPATH "images/drop-all-songs.png" ).scaledToHeight( 32, Qt::SmoothTransformation ) );
-    m_dropTypeImageMap.insert( 3, QPixmap( RESPATH "images/drop-local-songs.png" ).scaledToWidth( 32, Qt::SmoothTransformation ) );
-    m_dropTypeImageMap.insert( 4, QPixmap( RESPATH "images/drop-top-songs.png" ).scaledToWidth( 32, Qt::SmoothTransformation ) );
-
     m_dropMimeData = new QMimeData();
-
-    m_headphonesOff.load( RESPATH "images/headphones-off.png" );
-    m_headphonesOn.load( RESPATH "images/headphones-sidebar.png" );
-    m_realtimeLocked.load( RESPATH "images/closed-padlock.png" );
-    m_realtimeUnlocked.load( RESPATH "images/open-padlock.png" );
-    m_nowPlayingSpeaker.load( RESPATH "images/now-playing-speaker.png" );
-    m_nowPlayingSpeakerDark.load( RESPATH "images/now-playing-speaker-dark.png" );
 }
 
 
@@ -89,23 +80,24 @@ SourceDelegate::sizeHint( const QStyleOptionViewItem& option, const QModelIndex&
 
     if ( type == SourcesModel::Collection )
     {
-        return QSize( option.rect.width(), 40 );
+        return QSize( option.rect.width(), option.fontMetrics.height() * 3.0 );
     }
     else if ( type == SourcesModel::Divider )
     {
         return QSize( option.rect.width(), 6 );
     }
-    else if ( type == SourcesModel::Group && index.row() > 0 )
+    else if ( type == SourcesModel::Group )
     {
-        return QSize( option.rect.width(), 24 );
+        int groupSpacer = index.row() > 0 ? option.fontMetrics.height() * 0.6 : option.fontMetrics.height() * 0.2;
+        return QSize( option.rect.width(), option.fontMetrics.height() + groupSpacer );
     }
     else if ( m_expandedMap.contains( index ) )
     {
         if ( !m_expandedMap.value( index )->initialized() )
         {
             int dropTypes = dropTypeCount( item );
-            QSize originalSize = QStyledItemDelegate::sizeHint( option, index );
-            QSize targetSize = originalSize + QSize( 0, dropTypes == 0 ? 0 : 56 );
+            QSize originalSize = QSize( option.rect.width(), option.fontMetrics.height() * 1.4 );
+            QSize targetSize = originalSize + QSize( 0, dropTypes == 0 ? 0 : 38 + option.fontMetrics.height() * 1.4 );
             m_expandedMap.value( index )->initialize( originalSize, targetSize, 300 );
             m_expandedMap.value( index )->expand();
         }
@@ -113,7 +105,7 @@ SourceDelegate::sizeHint( const QStyleOptionViewItem& option, const QModelIndex&
         return m_expandedMap.value( index )->size();
     }
     else
-        return QStyledItemDelegate::sizeHint( option, index );
+        return QSize( option.rect.width(), option.fontMetrics.height() * 1.4 ); //QStyledItemDelegate::sizeHint( option, index ) );
 }
 
 
@@ -145,8 +137,10 @@ SourceDelegate::paintDecorations( QPainter* painter, const QStyleOptionViewItem&
         }
 
         QRect iconRect = QRect( 4, option.rect.y() + 2, iconW, iconW );
-        QPixmap speaker = option.state & QStyle::State_Selected ? m_nowPlayingSpeaker : m_nowPlayingSpeakerDark;
-        speaker = speaker.scaledToHeight( iconW, Qt::SmoothTransformation );
+        QPixmap speaker = option.state & QStyle::State_Selected ?
+            TomahawkUtils::defaultPixmap( TomahawkUtils::NowPlayingSpeaker, TomahawkUtils::Original, iconRect.size() ) :
+            TomahawkUtils::defaultPixmap( TomahawkUtils::NowPlayingSpeakerDark, TomahawkUtils::Original, iconRect.size() );
+
         painter->drawPixmap( iconRect, speaker );
     }
 }
@@ -155,6 +149,8 @@ SourceDelegate::paintDecorations( QPainter* painter, const QStyleOptionViewItem&
 void
 SourceDelegate::paintCollection( QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index ) const
 {
+    painter->save();
+
     QFont normal = option.font;
     QFont bold = option.font;
     bold.setBold( true );
@@ -162,7 +158,7 @@ SourceDelegate::paintCollection( QPainter* painter, const QStyleOptionViewItem& 
     QFont figFont = bold;
     figFont.setFamily( "Arial Bold" );
     figFont.setWeight( QFont::Black );
-    figFont.setPixelSize( 10 );
+    figFont.setPointSize( normal.pointSize() - 1 );
 
     SourceTreeItem* item = index.data( SourcesModel::SourceTreeItemRole ).value< SourceTreeItem* >();
     SourceItem* colItem = qobject_cast< SourceItem* >( item );
@@ -181,9 +177,8 @@ SourceDelegate::paintCollection( QPainter* painter, const QStyleOptionViewItem& 
     }
 
     QRect iconRect = option.rect.adjusted( 4, 6, -option.rect.width() + option.rect.height() - 12 + 4, -6 );
-
-    QPixmap avatar = colItem->icon().pixmap( iconRect.size() );
-    painter->drawPixmap( iconRect, avatar.scaledToHeight( iconRect.height(), Qt::SmoothTransformation ) );
+    QPixmap avatar = colItem->pixmap( iconRect.size() );
+    painter->drawPixmap( iconRect, avatar );
 
     if ( ( option.state & QStyle::State_Selected ) == QStyle::State_Selected )
     {
@@ -198,6 +193,7 @@ SourceDelegate::paintCollection( QPainter* painter, const QStyleOptionViewItem& 
 
     bool isPlaying = !( colItem->source()->currentTrack().isNull() );
     QString desc = colItem->source()->textStatus();
+    QColor descColor = QColor( "#8d8d8d" );
     if ( colItem->source().isNull() )
         desc = tr( "All available tracks" );
 
@@ -215,52 +211,75 @@ SourceDelegate::paintCollection( QPainter* painter, const QStyleOptionViewItem& 
     if ( isPlaying || ( !colItem->source().isNull() && colItem->source()->isLocal() ) )
     {
         // Show a listen icon
-        QPixmap listenAlongPixmap;
-        QPixmap realtimeListeningAlongPixmap;
+        TomahawkUtils::ImageType listenAlongPixmap = TomahawkUtils::Invalid;
+        TomahawkUtils::ImageType realtimeListeningAlongPixmap = TomahawkUtils::Invalid;
         if ( index.data( SourcesModel::LatchedOnRole ).toBool() )
         {
             // Currently listening along
-            listenAlongPixmap = m_headphonesOn;
+            listenAlongPixmap = TomahawkUtils::HeadphonesOn;
             if ( !colItem->source()->isLocal() )
             {
                 realtimeListeningAlongPixmap =
                     colItem->source()->playlistInterface()->latchMode() == Tomahawk::PlaylistModes::RealTime ?
-                        m_realtimeLocked : m_realtimeUnlocked;
+                        TomahawkUtils::PadlockClosed : TomahawkUtils::PadlockOpen;
             }
         }
         else if ( !colItem->source()->isLocal() )
         {
-            listenAlongPixmap = m_headphonesOff;
+            listenAlongPixmap = TomahawkUtils::HeadphonesOff;
         }
 
-        if ( !listenAlongPixmap.isNull() )
+        if ( listenAlongPixmap != TomahawkUtils::Invalid )
         {
             QRect pmRect = textRect;
             pmRect.setRight( pmRect.left() + pmRect.height() );
-            painter->drawPixmap( pmRect, listenAlongPixmap.scaledToHeight( pmRect.height(), Qt::SmoothTransformation ) );
+            painter->drawPixmap( pmRect, TomahawkUtils::defaultPixmap( listenAlongPixmap, TomahawkUtils::Original, pmRect.size() ) );
             textRect.adjust( pmRect.width() + 3, 0, 0, 0 );
-        }
 
-        if ( !realtimeListeningAlongPixmap.isNull() )
+            m_headphoneRects[ index ] = pmRect;
+        }
+        else
+            m_headphoneRects.remove( index );
+
+        if ( realtimeListeningAlongPixmap != TomahawkUtils::Invalid )
         {
             QRect pmRect = textRect;
             pmRect.setRight( pmRect.left() + pmRect.height() );
-            painter->drawPixmap( pmRect, realtimeListeningAlongPixmap.scaledToHeight( pmRect.height(), Qt::SmoothTransformation ) );
+            painter->drawPixmap( pmRect, TomahawkUtils::defaultPixmap( realtimeListeningAlongPixmap, TomahawkUtils::Original, pmRect.size() ) );
             textRect.adjust( pmRect.width() + 3, 0, 0, 0 );
+
+            m_lockRects[ index ] = pmRect;
         }
+        else
+            m_lockRects.remove( index );
+
+        if ( isPlaying )
+            descColor = Qt::black;
     }
 
+    if ( m_trackHovered == index )
+    {
+        QFont font = painter->font();
+        font.setUnderline( true );
+        painter->setFont( font );
+    }
     textRect.adjust( 0, 0, 0, 2 );
     text = painter->fontMetrics().elidedText( desc, Qt::ElideRight, textRect.width() - 8 );
     QTextOption to( Qt::AlignVCenter );
     to.setWrapMode( QTextOption::NoWrap );
+    painter->setPen( descColor );
     painter->drawText( textRect, text, to );
+
+    if ( colItem->source() && colItem->source()->currentTrack() )
+        m_trackRects[ index ] = textRect;
+    else
+        m_trackRects.remove( index );
 
     if ( status )
     {
         painter->setRenderHint( QPainter::Antialiasing );
 
-        QRect figRect = option.rect.adjusted( option.rect.width() - figWidth - 13, 0, -14, -option.rect.height() + 16 );
+        QRect figRect = option.rect.adjusted( option.rect.width() - figWidth - 13, 0, -14, -option.rect.height() + option.fontMetrics.height() * 1.1 );
         int hd = ( option.rect.height() - figRect.height() ) / 2;
         figRect.adjust( 0, hd, 0, hd );
 
@@ -272,12 +291,16 @@ SourceDelegate::paintCollection( QPainter* painter, const QStyleOptionViewItem& 
 
         TomahawkUtils::drawBackgroundAndNumbers( painter, tracks, figRect );
     }
+
+    painter->restore();
 }
 
 
 void
 SourceDelegate::paintCategory( QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index ) const
 {
+    painter->save();
+
     QTextOption to( Qt::AlignVCenter );
 
     painter->setPen( option.palette.color( QPalette::Base ) );
@@ -287,7 +310,7 @@ SourceDelegate::paintCategory( QPainter* painter, const QStyleOptionViewItem& op
 
     painter->setPen( Qt::white );
     painter->drawText( option.rect.translated( 4, 1 ), index.data().toString().toUpper(), to );
-    painter->setPen( QColor( 99, 113, 128 ) );
+    painter->setPen( TomahawkUtils::Colors::GROUP_HEADER );
     painter->drawText( option.rect.translated( 4, 0 ), index.data().toString().toUpper(), to );
 
     if ( option.state & QStyle::State_MouseOver )
@@ -296,8 +319,7 @@ SourceDelegate::paintCategory( QPainter* painter, const QStyleOptionViewItem& op
         if ( option.state & QStyle::State_Open )
             text = tr( "Hide" );
 
-        QFont font = painter->font();
-        font.setPixelSize( 11 );
+        QFont font = option.font;
         font.setBold( true );
         painter->setFont( font );
         QTextOption to( Qt::AlignVCenter | Qt::AlignRight );
@@ -305,17 +327,21 @@ SourceDelegate::paintCategory( QPainter* painter, const QStyleOptionViewItem& op
         // draw close icon
         painter->setPen( Qt::white );
         painter->drawText( option.rect.translated( -4, 1 ), text, to );
-        painter->setPen( QColor( 99, 113, 128 ) );
+        painter->setPen( TomahawkUtils::Colors::GROUP_HEADER );
         painter->drawText( option.rect.translated( -4, 0 ), text, to );
     }
+
+    painter->restore();
 }
 
 
 void
 SourceDelegate::paintGroup( QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index ) const
 {
+    painter->save();
+
     QFont font = painter->font();
-    font.setPixelSize( 12 );
+    font.setPointSize( option.font.pointSize() + 1 );
     font.setBold( true );
     painter->setFont( font );
 
@@ -328,7 +354,7 @@ SourceDelegate::paintGroup( QPainter* painter, const QStyleOptionViewItem& optio
 
     painter->setPen( Qt::white );
     painter->drawText( option.rect.translated( 4, 1 ), index.data().toString().toUpper(), to );
-    painter->setPen( QColor( 99, 113, 128 ) );
+    painter->setPen( TomahawkUtils::Colors::GROUP_HEADER );
     painter->drawText( option.rect.translated( 4, 0 ), index.data().toString().toUpper(), to );
 
     if ( option.state & QStyle::State_MouseOver )
@@ -337,16 +363,19 @@ SourceDelegate::paintGroup( QPainter* painter, const QStyleOptionViewItem& optio
         if ( option.state & QStyle::State_Open )
             text = tr( "Hide" );
 
-        font.setPixelSize( font.pixelSize() - 1 );
+        QFont font = option.font;
+        font.setBold( true );
         painter->setFont( font );
         QTextOption to( Qt::AlignBottom | Qt::AlignRight );
 
         // draw close icon
         painter->setPen( Qt::white );
         painter->drawText( option.rect.translated( -4, 1 ), text, to );
-        painter->setPen( QColor( 99, 113, 128 ) );
+        painter->setPen( TomahawkUtils::Colors::GROUP_HEADER );
         painter->drawText( option.rect.translated( -4, 0 ), text, to );
     }
+
+    painter->restore();
 }
 
 
@@ -357,12 +386,6 @@ SourceDelegate::paint( QPainter* painter, const QStyleOptionViewItem& option, co
     QStyleOptionViewItemV4 o3 = option;
 
     painter->save();
-
-    QFont font = painter->font();
-    font.setPixelSize( 11 );
-    painter->setFont( font );
-    o.font = font;
-    o3.font = font;
 
     SourcesModel::RowType type = static_cast< SourcesModel::RowType >( index.data( SourcesModel::SourceTreeItemTypeRole ).toInt() );
     SourceTreeItem* item = index.data( SourcesModel::SourceTreeItemRole ).value< SourceTreeItem* >();
@@ -458,7 +481,7 @@ SourceDelegate::paint( QPainter* painter, const QStyleOptionViewItem& option, co
         painter->setPen( pen );
 
         QFont font = painter->font();
-        font.setPixelSize( 12 );
+        font.setPointSize( option.font.pointSize() - 1 );
         painter->setFont( font );
         QFont fontBold = painter->font();
         fontBold.setBold( true );
@@ -494,7 +517,28 @@ SourceDelegate::paint( QPainter* painter, const QStyleOptionViewItem& option, co
             if ( itemsRect.bottom() - textRect.height() - 2 > itemsRect.top() )
             {
                 imageRect = itemsRect.adjusted( iconSpacing, verticalOffset, -iconSpacing, -textRect.height() - 2 );
-                painter->drawPixmap( imageRect.x(), imageRect.y(), m_dropTypeImageMap.value( i ).copy( 0, 32 - imageRect.height(), 32, imageRect.height() ) );
+
+                QPixmap pixmap;
+                switch ( i )
+                {
+                    case 0:
+                        pixmap = TomahawkUtils::defaultPixmap( TomahawkUtils::DropSong, TomahawkUtils::Original, imageRect.size() );
+                        break;
+                    case 1:
+                        pixmap = TomahawkUtils::defaultPixmap( TomahawkUtils::DropAlbum, TomahawkUtils::Original, imageRect.size() );
+                        break;
+                    case 2:
+                        pixmap = TomahawkUtils::defaultPixmap( TomahawkUtils::DropAllSongs, TomahawkUtils::Original, imageRect.size() );
+                        break;
+                    case 3:
+                        pixmap = TomahawkUtils::defaultPixmap( TomahawkUtils::DropLocalSongs, TomahawkUtils::Original, imageRect.size() );
+                        break;
+                    case 4:
+                        pixmap = TomahawkUtils::defaultPixmap( TomahawkUtils::DropTopSongs, TomahawkUtils::Original, imageRect.size() );
+                        break;
+                }
+
+                painter->drawPixmap( imageRect, pixmap );
             }
 
             count++;
@@ -540,11 +584,8 @@ SourceDelegate::paint( QPainter* painter, const QStyleOptionViewItem& option, co
                 QStyledItemDelegate::paint( painter, o, index );
 
                 // draw close icon
-                QPixmap p( RESPATH "images/list-remove.png" );
-                p = p.scaledToHeight( m_iconHeight, Qt::SmoothTransformation );
-
                 QRect r( o3.rect.right() - padding - m_iconHeight, padding + o3.rect.y(), m_iconHeight, m_iconHeight );
-                painter->drawPixmap( r, p );
+                painter->drawPixmap( r, TomahawkUtils::defaultPixmap( TomahawkUtils::ListRemove, TomahawkUtils::Original, r.size() ) );
             }
             else
                 QStyledItemDelegate::paint( painter, o, index );
@@ -557,12 +598,20 @@ SourceDelegate::paint( QPainter* painter, const QStyleOptionViewItem& option, co
             if ( plItem->canSubscribe() && !plItem->subscribedIcon().isNull() )
             {
                 const int padding = 2;
-                const int imgWidth = o.rect.height() - 2*padding;
+                const int imgWidth = o.rect.height() - 2 * padding;
 
                 const QPixmap icon = plItem->subscribedIcon().scaled( imgWidth, imgWidth, Qt::KeepAspectRatio, Qt::SmoothTransformation );
-
                 const QRect subRect( o.rect.right() - padding - imgWidth, o.rect.top() + padding, imgWidth, imgWidth );
                 painter->drawPixmap( subRect, icon );
+            }
+
+            if ( plItem->collaborative() )
+            {
+                const int padding = 2;
+                const int imgWidth = o.rect.height() - 2 * padding;
+                const QRect subRect( o.rect.left(), o.rect.top(), imgWidth, imgWidth );
+
+                painter->drawPixmap( subRect, TomahawkUtils::defaultPixmap( TomahawkUtils::GreenDot, TomahawkUtils::Original, subRect.size() ) );
             }
         }
         else
@@ -590,6 +639,52 @@ SourceDelegate::updateEditorGeometry( QWidget* editor, const QStyleOptionViewIte
 bool
 SourceDelegate::editorEvent( QEvent* event, QAbstractItemModel* model, const QStyleOptionViewItem& option, const QModelIndex& index )
 {
+    bool hoveringTrack = false;
+    if ( m_trackRects.contains( index ) )
+    {
+        const QRect trackRect = m_trackRects[ index ];
+        const QMouseEvent* ev = static_cast< QMouseEvent* >( event );
+        hoveringTrack = trackRect.contains( ev->pos() );
+
+        if ( hoveringTrack )
+        {
+            if ( m_trackHovered != index )
+            {
+                m_trackHovered = index;
+                QMetaObject::invokeMethod( m_parent, "update", Qt::QueuedConnection, Q_ARG( QModelIndex, index ) );
+            }
+        }
+    }
+    if ( !hoveringTrack )
+    {
+        if ( m_trackHovered.isValid() )
+            QMetaObject::invokeMethod( m_parent, "update", Qt::QueuedConnection, Q_ARG( QModelIndex, m_trackHovered ) );
+
+        m_trackHovered = QPersistentModelIndex();
+    }
+
+    bool lockRectContainsClick = false, headphonesRectContainsClick = false;
+    if ( m_headphoneRects.contains( index ) )
+    {
+        const QRect headphoneRect = m_headphoneRects[ index ];
+        const QMouseEvent* ev = static_cast< QMouseEvent* >( event );
+        headphonesRectContainsClick = headphoneRect.contains( ev->pos() );
+    }
+    if ( m_lockRects.contains( index ) )
+    {
+        const QRect lockRect = m_lockRects[ index ];
+        const QMouseEvent* ev = static_cast< QMouseEvent* >( event );
+        lockRectContainsClick = lockRect.contains( ev->pos() );
+    }
+
+    if ( event->type() == QEvent::MouseMove )
+    {
+        if ( hoveringTrack || lockRectContainsClick || headphonesRectContainsClick )
+            m_parent->setCursor( Qt::PointingHandCursor );
+        else
+            m_parent->setCursor( Qt::ArrowCursor );
+    }
+
     if ( event->type() == QEvent::MouseButtonRelease || event->type() == QEvent::MouseButtonPress )
     {
         SourcesModel::RowType type = static_cast< SourcesModel::RowType >( index.data( SourcesModel::SourceTreeItemTypeRole ).toInt() );
@@ -623,19 +718,25 @@ SourceDelegate::editorEvent( QEvent* event, QAbstractItemModel* model, const QSt
             SourceItem* colItem = qobject_cast< SourceItem* >( index.data( SourcesModel::SourceTreeItemRole ).value< SourceTreeItem* >() );
             Q_ASSERT( colItem );
 
+            if ( hoveringTrack && colItem->source() && colItem->source()->currentTrack() )
+            {
+                const QMouseEvent* ev = static_cast< QMouseEvent* >( event );
+                if ( event->type() == QEvent::MouseButtonRelease && ev->button() == Qt::LeftButton )
+                {
+                    ViewManager::instance()->show( colItem->source()->currentTrack() );
+                    return true;
+                }
+                else if ( event->type() == QEvent::MouseButtonPress && ev->button() == Qt::RightButton )
+                {
+                    Tomahawk::ContextMenu* contextMenu = new Tomahawk::ContextMenu( m_parent );
+                    contextMenu->setQuery( colItem->source()->currentTrack() );
+                    contextMenu->exec( QCursor::pos() );
+                    return true;
+                }
+            }
+
             if ( !colItem->source().isNull() && !colItem->source()->currentTrack().isNull() && !colItem->source()->isLocal() )
             {
-                QMouseEvent* ev = static_cast< QMouseEvent* >( event );
-
-                QStyleOptionViewItemV4 o = option;
-                initStyleOption( &o, index );
-                QFontMetrics fm( o.font );
-                const int height = fm.height() + 3;
-
-                QRect headphonesRect( option.rect.height() + 10, o.rect.bottom() - height, height, height );
-                bool headphonesRectContainsClick = headphonesRect.contains( ev->pos() );
-                QRect lockRect( option.rect.height() + 20, o.rect.bottom() - height, height, height );
-                bool lockRectContainsClick = lockRect.contains( ev->pos() );
                 if ( headphonesRectContainsClick || lockRectContainsClick )
                 {
                     if ( event->type() == QEvent::MouseButtonRelease )
@@ -699,10 +800,9 @@ SourceDelegate::editorEvent( QEvent* event, QAbstractItemModel* model, const QSt
                 emit clicked( index );
             }
         }
-
     }
 
-    return QStyledItemDelegate::editorEvent ( event, model, option, index );
+    return QStyledItemDelegate::editorEvent( event, model, option, index );
 }
 
 
@@ -741,7 +841,7 @@ SourceDelegate::hovered( const QModelIndex& index, const QMimeData* mimeData )
 {
     if ( !index.isValid() )
     {
-        foreach ( AnimationHelper *helper, m_expandedMap )
+        foreach ( AnimationHelper* helper, m_expandedMap )
         {
             helper->collapse();
         }
@@ -750,14 +850,14 @@ SourceDelegate::hovered( const QModelIndex& index, const QMimeData* mimeData )
 
     if ( !m_expandedMap.contains( index ) )
     {
-        foreach ( AnimationHelper *helper, m_expandedMap )
+        foreach ( AnimationHelper* helper, m_expandedMap )
         {
             helper->collapse();
         }
 
         m_newDropHoverIndex = index;
         m_dropMimeData->clear();
-        foreach ( const QString &mimeDataFormat, mimeData->formats() )
+        foreach ( const QString& mimeDataFormat, mimeData->formats() )
         {
             m_dropMimeData->setData( mimeDataFormat, mimeData->data( mimeDataFormat ) );
         }

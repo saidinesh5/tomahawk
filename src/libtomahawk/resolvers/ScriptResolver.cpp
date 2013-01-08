@@ -28,7 +28,7 @@
 #include "Pipeline.h"
 #include "SourceList.h"
 
-#include "utils/TomahawkUtils.h"
+#include "utils/TomahawkUtilsGui.h"
 #include "utils/Logger.h"
 
 #ifdef Q_OS_WIN
@@ -57,6 +57,9 @@ ScriptResolver::ScriptResolver( const QString& exe )
 
     // set the name to the binary, if we launch properly we'll get the name the resolver reports
     m_name = QFileInfo( filePath() ).baseName();
+
+    // set the icon, if we launch properly we'll get the icon the resolver reports
+    m_icon = TomahawkUtils::defaultPixmap( TomahawkUtils::DefaultResolver, TomahawkUtils::Original, QSize( 128, 128 ) );
 }
 
 
@@ -279,6 +282,8 @@ ScriptResolver::handleMsg( const QByteArray& msg )
             rp->setSize( m.value( "size" ).toUInt() );
             rp->setRID( uuid() );
             rp->setFriendlySource( m_name );
+            rp->setPurchaseUrl( m.value( "purchaseUrl" ).toString() );
+            rp->setLinkUrl( m.value( "linkUrl" ).toString() );
             rp->setYear( m.value( "year").toUInt() );
             rp->setDiscNumber( m.value( "discnumber" ).toUInt() );
 
@@ -371,7 +376,31 @@ ScriptResolver::doSetup( const QVariantMap& m )
     m_name    = m.value( "name" ).toString();
     m_weight  = m.value( "weight", 0 ).toUInt();
     m_timeout = m.value( "timeout", 5 ).toUInt() * 1000;
-    qDebug() << "SCRIPT" << filePath() << "READY," << "name" << m_name << "weight" << m_weight << "timeout" << m_timeout;
+    bool compressed = m.value( "compressed", "false" ).toString() == "true";
+
+    QByteArray icoData = m.value( "icon" ).toByteArray();
+    if( compressed )
+        icoData = qUncompress( QByteArray::fromBase64( icoData ) );
+    else
+        icoData = QByteArray::fromBase64( icoData );
+    QPixmap ico;
+    ico.loadFromData( icoData );
+
+    bool success = false;
+    if ( !ico.isNull() )
+    {
+        m_icon = ico.scaled( m_icon.size(), Qt::IgnoreAspectRatio );
+        success = true;
+    }
+    // see if the resolver sent an icon path to not break the old (unofficial) api.
+    // TODO: remove this and publish a definitive api
+    if ( !success )
+    {
+        QString iconPath = QFileInfo( filePath() ).path() + "/" + m.value( "icon" ).toString();
+        success = m_icon.load( iconPath );
+    }
+
+    qDebug() << "SCRIPT" << filePath() << "READY," << "name" << m_name << "weight" << m_weight << "timeout" << m_timeout << "icon received" << success;
 
     m_ready = true;
     m_configSent = false;
@@ -398,7 +427,7 @@ ScriptResolver::setupConfWidget( const QVariantMap& m )
 
     if ( m.contains( "images" ) )
         uiData = fixDataImagePaths( uiData, compressed, m[ "images" ].toMap() );
-    m_configWidget = QWeakPointer< QWidget >( widgetFromData( uiData, 0 ) );
+    m_configWidget = QPointer< QWidget >( widgetFromData( uiData, 0 ) );
 
     emit changed();
 }
@@ -475,6 +504,13 @@ ScriptResolver::saveConfig()
     QByteArray data = m_serializer.serialize( m );
 
     sendMsg( data );
+}
+
+
+void
+ScriptResolver::setIcon( const QPixmap& icon )
+{
+    m_icon = icon;
 }
 
 

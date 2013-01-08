@@ -21,7 +21,6 @@
 #include "InfoSystemWorker.h"
 
 #include "config.h"
-#include "HeadlessCheck.h"
 #include "InfoSystemCache.h"
 #include "GlobalActionManager.h"
 #include "utils/TomahawkUtils.h"
@@ -63,6 +62,13 @@ InfoSystemWorker::~InfoSystemWorker()
             delete plugin.data();
     }
     tDebug() << Q_FUNC_INFO << " finished";
+}
+
+
+const QList< InfoPluginPtr >
+InfoSystemWorker::plugins() const
+{
+    return m_plugins;
 }
 
 
@@ -222,6 +228,7 @@ InfoSystemWorker::loadInfoPlugins( const QStringList& pluginPaths )
         if ( infoPlugin )
         {
             tDebug() << Q_FUNC_INFO << "Loaded info plugin:" << loader.fileName();
+            infoPlugin->setFriendlyName( loader.fileName() );
             addInfoPlugin( InfoPluginPtr( infoPlugin ) );
         }
         else

@@ -19,11 +19,6 @@
 
 #include "TreeView.h"
 
-#include <QHeaderView>
-#include <QKeyEvent>
-#include <QPainter>
-#include <QScrollBar>
-
 #include "audio/AudioEngine.h"
 #include "context/ContextWidget.h"
 #include "utils/AnimatedSpinner.h"
@@ -39,6 +34,13 @@
 #include "ViewManager.h"
 #include "utils/TomahawkUtilsGui.h"
 #include "utils/Logger.h"
+
+#include <QHeaderView>
+#include <QKeyEvent>
+#include <QPainter>
+#include <QScrollBar>
+#include <QDrag>
+#include <QMimeData>
 
 #define SCROLL_TIMEOUT 280
 
@@ -75,17 +77,6 @@ TreeView::TreeView( QWidget* parent )
 
     setHeader( m_header );
     setProxyModel( new TreeProxyModel( this ) );
-
-    #ifndef Q_WS_WIN
-    QFont f = font();
-    f.setPointSize( f.pointSize() - 1 );
-    setFont( f );
-    #endif
-
-    #ifdef Q_WS_MAC
-    f.setPointSize( f.pointSize() - 2 );
-    setFont( f );
-    #endif
 
     m_timer.setInterval( SCROLL_TIMEOUT );
     connect( verticalScrollBar(), SIGNAL( rangeChanged( int, int ) ), SLOT( onViewChanged() ) );
@@ -243,13 +234,20 @@ TreeView::onItemActivated( const QModelIndex& index )
     if ( item )
     {
         if ( !item->artist().isNull() )
+        {
             ViewManager::instance()->show( item->artist() );
+        }
         else if ( !item->album().isNull() )
+        {
             ViewManager::instance()->show( item->album() );
+        }
         else if ( !item->result().isNull() && item->result()->isOnline() )
         {
-            m_model->setCurrentItem( item->index );
             AudioEngine::instance()->playItem( m_proxyModel->playlistInterface(), item->result() );
+        }
+        else if ( !item->query().isNull() )
+        {
+            AudioEngine::instance()->playItem( m_proxyModel->playlistInterface(), item->query() );
         }
     }
 }
@@ -396,6 +394,7 @@ TreeView::onCustomContextMenu( const QPoint& pos )
     m_contextMenu->setQueries( queries );
     m_contextMenu->setArtists( artists );
     m_contextMenu->setAlbums( albums );
+    m_contextMenu->setPlaylistInterface( playlistInterface() );
 
     m_contextMenu->exec( viewport()->mapToGlobal( pos ) );
 }

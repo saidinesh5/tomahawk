@@ -28,6 +28,8 @@
 #include <QtNetwork/QNetworkRequest>
 #include <QtNetwork/QNetworkReply>
 
+#include <boost/bind.hpp>
+
 #include "Result.h"
 #include "Source.h"
 #include "BufferIoDevice.h"
@@ -88,7 +90,6 @@ Servent::Servent( QObject* parent )
 
 Servent::~Servent()
 {
-
     if ( m_portfwd )
     {
         m_portfwd.data()->quit();
@@ -149,7 +150,7 @@ Servent::startListening( QHostAddress ha, bool upnp, int port )
             }
             // TODO check if we have a public/internet IP on this machine directly
             tLog() << "External address mode set to upnp...";
-            m_portfwd = QWeakPointer< PortFwdThread >( new PortFwdThread( m_port ) );
+            m_portfwd = QPointer< PortFwdThread >( new PortFwdThread( m_port ) );
             Q_ASSERT( m_portfwd );
             connect( m_portfwd.data(), SIGNAL( externalAddressDetected( QHostAddress, unsigned int ) ),
                                   SLOT( setExternalAddress( QHostAddress, unsigned int ) ) );
@@ -242,7 +243,7 @@ Servent::setExternalAddress( QHostAddress ha, unsigned int port )
 void
 Servent::registerOffer( const QString& key, Connection* conn )
 {
-    m_offers[key] = QWeakPointer<Connection>(conn);
+    m_offers[key] = QPointer<Connection>(conn);
 }
 
 
@@ -303,7 +304,7 @@ void
 Servent::readyRead()
 {
     Q_ASSERT( this->thread() == QThread::currentThread() );
-    QWeakPointer< QTcpSocketExtra > sock = (QTcpSocketExtra*)sender();
+    QPointer< QTcpSocketExtra > sock = (QTcpSocketExtra*)sender();
 
     if( sock.isNull() || sock.data()->_disowned )
     {
@@ -666,7 +667,7 @@ Servent::claimOffer( ControlConnection* cc, const QString &nodeid, const QString
 
     if( m_offers.contains( key ) )
     {
-        QWeakPointer<Connection> conn = m_offers.value( key );
+        QPointer<Connection> conn = m_offers.value( key );
         if( conn.isNull() )
         {
             // This can happen if it's a streamconnection, but the audioengine has

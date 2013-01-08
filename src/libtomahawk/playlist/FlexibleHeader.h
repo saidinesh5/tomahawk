@@ -1,6 +1,7 @@
 /* === This file is part of Tomahawk Player - <http://tomahawk-player.org> ===
  *
  *   Copyright 2010-2011, Christian Muehlhaeuser <muesli@tomahawk-player.org>
+ *   Copyright 2012,      Teo Mrnjavac <teo@kde.org>
  *
  *   Tomahawk is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -19,32 +20,26 @@
 #ifndef FLEXIBLEHEADER_H
 #define FLEXIBLEHEADER_H
 
-#include <QWidget>
 #include <QTimer>
 
+#include "widgets/BasicHeader.h"
 #include "DllMacro.h"
 #include "Artist.h"
 
+class QPaintEvent;
 class FlexibleView;
+class QRadioButton;
+class QSearchField;
 
-namespace Ui
+class DLLEXPORT FlexibleHeader : public BasicHeader
 {
-    class PlaylistHeader;
-}
-
-class DLLEXPORT FlexibleHeader : public QWidget
-{
-Q_OBJECT
+    Q_OBJECT
 
 public:
     FlexibleHeader( FlexibleView* parent );
     ~FlexibleHeader();
 
 public slots:
-    void setCaption( const QString& s );
-    void setDescription( const QString& s );
-    void setPixmap( const QPixmap& p );
-
     void setFilter( const QString& filter );
 
 signals:
@@ -59,10 +54,15 @@ private slots:
 
 private:
     FlexibleView* m_parent;
-    Ui::PlaylistHeader* ui;
 
     QString m_filter;
     QTimer m_filterTimer;
+
+    QRadioButton* m_radioCloud;
+    QRadioButton* m_radioDetailed;
+    QRadioButton* m_radioNormal;
+
+    QSearchField* m_filterField;
 };
 
 #endif

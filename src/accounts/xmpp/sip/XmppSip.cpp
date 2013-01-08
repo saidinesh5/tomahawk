@@ -21,10 +21,18 @@
 
 #include "XmppSip.h"
 
-#include "config.h"
 
 #include "TomahawkXmppMessage.h"
 #include "TomahawkXmppMessageFactory.h"
+
+#include "utils/TomahawkUtils.h"
+#include "utils/Logger.h"
+#include "accounts/AccountManager.h"
+#include "TomahawkSettings.h"
+#include "utils/TomahawkUtilsGui.h"
+
+#include "config.h"
+#include "TomahawkVersion.h"
 
 #include <jreen/jid.h>
 #include <jreen/capabilities.h>
@@ -40,24 +48,16 @@
 #include <qjson/parser.h>
 #include <qjson/serializer.h>
 
-#include <QtCore/QtPlugin>
-#include <QtCore/QStringList>
-#include <QtCore/QDateTime>
-#include <QtCore/QTimer>
-
-#include <utils/TomahawkUtils.h>
-#include <utils/Logger.h>
-#include <accounts/AccountManager.h>
-#include <TomahawkSettings.h>
+#include <QtPlugin>
+#include <QStringList>
+#include <QDateTime>
+#include <QTimer>
 
 #ifndef ENABLE_HEADLESS
-    #include <QtGui/QInputDialog>
-    #include <QtGui/QLineEdit>
-    #include <QtGui/QMessageBox>
+    #include <QInputDialog>
+    #include <QLineEdit>
+    #include <QMessageBox>
 #endif
-
-#include <utils/TomahawkUtilsGui.h>
-#include "utils/Logger.h"
 
 using namespace Tomahawk;
 using namespace Accounts;
@@ -75,16 +75,16 @@ JreenMessageHandler( QtMsgType type, const char *msg )
     switch ( type )
     {
         case QtDebugMsg:
-            tDebug( LOGTHIRDPARTY ).nospace() << JREEN_LOG_INFIX << ": " << "Debug: " <<  msg;
+            tDebug( LOGTHIRDPARTY ).nospace() << JREEN_LOG_INFIX << ":" << "Debug:" << msg;
             break;
         case QtWarningMsg:
-            tDebug( LOGTHIRDPARTY ).nospace() << JREEN_LOG_INFIX << ": " << "Warning: " <<  msg;
+            tDebug( LOGTHIRDPARTY ).nospace() << JREEN_LOG_INFIX << ":" << "Warning:" << msg;
             break;
         case QtCriticalMsg:
-            tDebug( LOGTHIRDPARTY ).nospace() << JREEN_LOG_INFIX << ": " << "Critical: " <<  msg;
+            tDebug( LOGTHIRDPARTY ).nospace() << JREEN_LOG_INFIX << ":" << "Critical:" << msg;
             break;
         case QtFatalMsg:
-            tDebug( LOGTHIRDPARTY ).nospace() << JREEN_LOG_INFIX << ": " << "Fatal: " <<  msg;
+            tDebug( LOGTHIRDPARTY ).nospace() << JREEN_LOG_INFIX << ":" << "Fatal:" << msg;
             abort();
     }
 }
@@ -138,7 +138,7 @@ XmppSipPlugin::XmppSipPlugin( Account* account )
 #endif
 
     // setup disco
-    m_client->disco()->setSoftwareVersion( "Tomahawk Player", TOMAHAWK_VERSION, CMAKE_SYSTEM );
+    m_client->disco()->setSoftwareVersion( "Tomahawk Player", TOMAHAWK_VERSION, TOMAHAWK_SYSTEM );
     m_client->disco()->addIdentity( Jreen::Disco::Identity( "client", "type", "tomahawk", "en" ) );
     m_client->disco()->addFeature( TOMAHAWK_FEATURE );
 
@@ -191,12 +191,18 @@ XmppSipPlugin::~XmppSipPlugin()
     delete m_client;
 }
 
+QString
+XmppSipPlugin::inviteString() const
+{
+    return tr( "Enter Jabber ID" );
+}
+
 
 InfoSystem::InfoPluginPtr
 XmppSipPlugin::infoPlugin()
 {
     if ( m_infoPlugin.isNull() )
-        m_infoPlugin = QWeakPointer< Tomahawk::InfoSystem::XmppInfoPlugin >( new Tomahawk::InfoSystem::XmppInfoPlugin( this ) );
+        m_infoPlugin = QPointer< Tomahawk::InfoSystem::XmppInfoPlugin >( new Tomahawk::InfoSystem::XmppInfoPlugin( this ) );
 
     return InfoSystem::InfoPluginPtr( m_infoPlugin.data() );
 }
@@ -261,9 +267,10 @@ XmppSipPlugin::disconnectPlugin()
 
     publishTune( QUrl(), Tomahawk::InfoSystem::InfoStringHash() );
 
-    m_client->disconnectFromServer( true );
     m_state = Account::Disconnecting;
     emit stateChanged( m_state );
+
+    m_client->disconnectFromServer( true );
 }
 
 
@@ -446,12 +453,6 @@ XmppSipPlugin::sendMsg( const QString& to, const SipInfo& info )
     Jreen::IQReply *reply = m_client->send( iq );
     reply->setData( SipMessageSent );
     connect( reply, SIGNAL( received( Jreen::IQ ) ), SLOT( onNewIq( Jreen::IQ ) ) );
-}
-
-
-void
-XmppSipPlugin::broadcastMsg( const QString& msg )
-{
 }
 
 

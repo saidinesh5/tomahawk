@@ -20,14 +20,12 @@
 
 #include "PipelineStatusItem.h"
 
-#include "utils/TomahawkUtils.h"
+#include "utils/TomahawkUtilsGui.h"
 #include "Pipeline.h"
-#include "TomahawkApp.h"
 #include "JobStatusModel.h"
 #include "JobStatusView.h"
 #include "Source.h"
 
-QPixmap* PipelineStatusItem::s_pixmap = 0;
 
 PipelineStatusItem::PipelineStatusItem( const Tomahawk::query_ptr& q )
     : JobStatusItem()
@@ -70,12 +68,7 @@ PipelineStatusItem::idle()
 QPixmap
 PipelineStatusItem::icon() const
 {
-    if ( !s_pixmap )
-    {
-        s_pixmap = new QPixmap( RESPATH"images/search-icon.png" );
-    }
-
-    return *s_pixmap;
+    return TomahawkUtils::defaultPixmap( TomahawkUtils::Search );
 }
 
 
@@ -108,7 +101,7 @@ PipelineStatusManager::resolving( const Tomahawk::query_ptr& p )
     if ( m_curItem.isNull() )
     {
         // No current query item and we're resolving something, so show it
-        m_curItem = QWeakPointer< PipelineStatusItem >( new PipelineStatusItem( p ) );
+        m_curItem = QPointer< PipelineStatusItem >( new PipelineStatusItem( p ) );
         JobStatusView::instance()->model()->addJob( m_curItem.data() );
     }
 }

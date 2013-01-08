@@ -68,19 +68,16 @@ signals:
     void filterTextChanged( const QString& filter );
 
 protected:
-    void changeEvent( QEvent* e );
-    void paintEvent( QPaintEvent* e );
+    void changeEvent( QEvent* event );
+    void paintEvent( QPaintEvent* event );
 
 private slots:
     void onFilterEdited();
     void artistClicked();
 
 private:
-    void createTile( int width = 2000 );
-
     Ui::InfoBar* ui;
 
-    QPixmap m_bgTile;
     QPalette m_whitePal;
 
     QList<Tomahawk::PlaylistUpdaterInterface*> m_updaters;;

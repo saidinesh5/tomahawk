@@ -1,26 +1,14 @@
 PROJECT( tomahawk )
 CMAKE_MINIMUM_REQUIRED( VERSION 2.8 )
 
-IF( "${gui}" STREQUAL "no" )
-    SET( QT_DONT_USE_QTGUI TRUE )
-ENDIF()
 
-IF( UNIX AND NOT APPLE )
-  SET( QT_USE_QTDBUS TRUE )
-ENDIF( UNIX AND NOT APPLE )
-SET( QT_USE_QTSQL TRUE )
-SET( QT_USE_QTNETWORK TRUE )
-SET( QT_USE_QTXML TRUE )
-SET( QT_USE_QTWEBKIT TRUE )
+setup_qt()
 
-INCLUDE( ${QT_USE_FILE} )
-INCLUDE( AddAppIconMacro )
+include( AddAppIconMacro )
 
-#SET( CMAKE_BUILD_TYPE "Release" )
-SET( CMAKE_VERBOSE_MAKEFILE ON )
-SET( CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" )
-SET( CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" )
-SET( CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" )
+# SET( CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" )
+# SET( CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" )
+# SET( CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" )
 IF( NOT CMAKE_BUILD_TYPE STREQUAL "Release" )
     MESSAGE( "Building in debug mode, enabling all debug updates" )
     SET( DEBUG_BUILD ON )
@@ -35,8 +23,6 @@ ENDIF()
 #ENDFOREACH( moddir )
 
 SET( tomahawkSources ${tomahawkSources}
-     web/Api_v1.cpp
-
      AclRegistryImpl.cpp
      ShortcutHandler.cpp
      UbuntuUnityHack.cpp
@@ -70,10 +56,18 @@ SET( tomahawkSourcesGui ${tomahawkSourcesGui}
      AudioControls.cpp
      SettingsDialog.cpp
      DiagnosticsDialog.cpp
-     SettingsListDelegate.cpp
      TomahawkWindow.cpp
      LoadXSPFDialog.cpp
      SocialWidget.cpp
+
+     widgets/ContainedMenuButton.cpp
+     widgets/AccountListWidget.cpp
+     widgets/AccountModelFactoryProxy.cpp
+     widgets/AccountWidget.cpp
+     widgets/AccountsPopupWidget.cpp
+     widgets/AccountsToolButton.cpp
+     widgets/SlideSwitchButton.cpp
+     widgets/UnstyledFrame.cpp
 )
 
 IF( WITH_BREAKPAD )
@@ -83,7 +77,9 @@ ENDIF()
 SET( tomahawkUI ${tomahawkUI}
      TomahawkWindow.ui
      DiagnosticsDialog.ui
-     StackedSettingsDialog.ui
+     Settings_Accounts.ui
+     Settings_Advanced.ui
+     Settings_Collection.ui
      ProxyDialog.ui
 
      AudioControls.ui
@@ -94,19 +90,12 @@ SET( tomahawkUI ${tomahawkUI}
 INCLUDE_DIRECTORIES(
     .
     ${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}/libtomahawk
 
-    audio
-    database
-    playlist
-    network
     sourcetree
-    topbar
     libtomahawk
     mac
 
-    ${THIRDPARTY_DIR}/qxt/qxtweb-standalone/qxtweb
-    ${THIRDPARTY_DIR}/qtweetlib/qtweetlib/src
-    ${THIRDPARTY_DIR}/qtweetlib/tomahawk-custom
     ${THIRDPARTY_DIR}/breakpad
 
     ${TAGLIB_INCLUDES}
@@ -115,8 +104,13 @@ INCLUDE_DIRECTORIES(
     ${LIBATTICA_INCLUDE_DIR}
     ${ECHONEST_INCLUDE_DIR}
     ${LIBLASTFM_INCLUDE_DIRS}
-    ${LIBLASTFM_INCLUDE_DIRS}/..
 )
+
+IF(QXTWEB_FOUND)
+    LIST(APPEND tomahawkSources web/Api_v1.cpp)
+    LIST(APPEND LINK_LIBRARIES ${QXTWEB_LIBRARIES})
+    INCLUDE_DIRECTORIES(${QXTWEB_INCLUDE_DIRS})
+ENDIF()
 
 SET( OS_SPECIFIC_LINK_LIBRARIES "" )
 
@@ -143,18 +137,22 @@ IF(QCA2_FOUND)
 ENDIF(QCA2_FOUND)
 
 INCLUDE(GNUInstallDirs)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Config.h.in
-               ${CMAKE_CURRENT_BINARY_DIR}/config.h)
+
+# currently only in libtomahawk, we might want to properly split what's in which config file
+# configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Config.h.in
+#                ${CMAKE_CURRENT_BINARY_DIR}/config.h)
+# configure_file(${CMAKE_CURRENT_SOURCE_DIR}/TomahawkVersion.h.in
+#                ${CMAKE_CURRENT_BINARY_DIR}/TomahawkVersion.h)
 
 # translations
 include( ${CMAKE_SOURCE_DIR}/lang/translations.cmake )
-add_tomahawk_translations(ar bg ca de en es fr ja pl pt_BR ru sv tr zh_CN zh_TW)
+add_tomahawk_translations( ${TOMAHAWK_TRANSLATION_LANGUAGES} )
 
 SET( final_src ${final_src} ${tomahawkMoc} ${tomahawkSources} ${trans_outfile})
 
 IF( BUILD_GUI )
     LIST(APPEND tomahawkSources ${tomahawkSourcesGui})
-    qt4_wrap_ui( tomahawkUI_H ${tomahawkUI} )
+    qt_wrap_ui( tomahawkUI_H ${tomahawkUI} )
 
     IF( WITH_CRASHREPORTER )
         ADD_SUBDIRECTORY( breakpad/CrashReporter )
@@ -162,7 +160,7 @@ IF( BUILD_GUI )
 ENDIF()
 
 kde4_add_app_icon( tomahawkSources "${CMAKE_SOURCE_DIR}/data/icons/tomahawk-icon-*.png" )
-qt4_add_resources( RC_SRCS "../resources.qrc" )
+qt_add_resources( RC_SRCS "../resources.qrc" )
 
 SET( final_src ${final_src} ${tomahawkUI_H} ${tomahawkMoc} ${tomahawkSources} ${RC_SRCS} )
 
@@ -178,18 +176,18 @@ IF( WIN32 )
 ENDIF( WIN32 )
 
 SET_TARGET_PROPERTIES(tomahawk PROPERTIES AUTOMOC TRUE)
+qt5_use_modules(tomahawk Core Widgets Network Sql WebKitWidgets)
 
 MESSAGE( STATUS "OS_SPECIFIC_LINK_LIBRARIES: ${OS_SPECIFIC_LINK_LIBRARIES}" )
 
-SET(LINK_LIBRARIES  "")
 IF(LIBLASTFM_FOUND)
-    SET( LINK_LIBRARIES ${LINK_LIBRARIES} ${LIBLASTFM_LIBRARIES} )
+    LIST(APPEND LINK_LIBRARIES ${LINK_LIBRARIES} ${LIBLASTFM_LIBRARIES} )
 ENDIF(LIBLASTFM_FOUND)
 IF(QCA2_FOUND)
-    SET( LINK_LIBRARIES ${LINK_LIBRARIES} ${QCA2_LIBRARIES} )
+    LIST(APPEND LINK_LIBRARIES ${LINK_LIBRARIES} ${QCA2_LIBRARIES} )
 ENDIF(QCA2_FOUND)
 IF(WITH_BREAKPAD)
-    SET( LINK_LIBRARIES ${LINK_LIBRARIES} tomahawk_breakpad )
+    LIST(APPEND LINK_LIBRARIES ${LINK_LIBRARIES} tomahawk_breakpad )
 ENDIF()
 
 TARGET_LINK_LIBRARIES( tomahawk
@@ -200,7 +198,6 @@ TARGET_LINK_LIBRARIES( tomahawk
     ${QT_LIBRARIES}
     ${MAC_EXTRA_LIBS}
     ${ECHONEST_LIBRARIES}
-    ${QXTWEB_LIBRARIES}
     ${QJSON_LIBRARIES}
     ${TAGLIB_LIBRARIES}
 )

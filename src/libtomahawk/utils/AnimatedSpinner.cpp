@@ -17,25 +17,34 @@
 
 #include "AnimatedSpinner.h"
 
-#include <QtCore/QPoint>
+#include "utils/Logger.h"
+
+#include <QPoint>
 #include <QTimeLine>
 #include <QDebug>
 #include <QDateTime>
-
-#include <QtGui/QApplication>
-#include <QtGui/QHideEvent>
-#include <QtGui/QPainter>
-#include <QtGui/QPaintEvent>
-#include <QtGui/QShowEvent>
-
-#include "utils/Logger.h"
-
+#include <QApplication>
+#include <QHideEvent>
+#include <QPainter>
+#include <QPaintEvent>
+#include <QShowEvent>
 
 AnimatedSpinner::AnimatedSpinner( QWidget* parent )
     : QWidget( parent )
     , m_showHide( new QTimeLine )
     , m_animation( new QTimeLine )
     , m_currentIndex( -1 )
+    , m_size( QSize( 0, 0 ) )
+{
+    init();
+}
+
+AnimatedSpinner::AnimatedSpinner( const QSize& size, QWidget *parent )
+    : QWidget( parent )
+    , m_showHide( new QTimeLine )
+    , m_animation( new QTimeLine )
+    , m_currentIndex( -1 )
+    , m_size( size )
 {
     init();
 }
@@ -87,7 +96,7 @@ AnimatedSpinner::init()
 
     QSize size;
     if ( parentWidget() )
-        size = sizeHint();
+        size = m_size != QSize( 0, 0 ) ? m_size : sizeHint();
     else
         size = m_pixmap.size();
 
@@ -111,6 +120,7 @@ AnimatedSpinner::paintEvent( QPaintEvent* event )
     if ( m_autoCenter && parentWidget() )
     {
         QPoint center = parentWidget()->contentsRect().center() - QPoint( sizeHint().width() / 2, sizeHint().height() / 2 );
+
         if ( center != pos() )
         {
             move( center );
@@ -165,7 +175,7 @@ AnimatedSpinner::drawFrame( QPainter* p, const QRect& rect )
 void
 AnimatedSpinner::fadeIn()
 {
-    if ( parentWidget() && isVisible() || m_animation->state() == QTimeLine::Running )
+    if ( ( parentWidget() && isVisible() ) || m_animation->state() == QTimeLine::Running )
         return;
 
     m_animation->start();

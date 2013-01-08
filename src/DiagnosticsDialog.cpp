@@ -21,6 +21,17 @@
 #include "ui_DiagnosticsDialog.h"
 
 #include "config.h"
+#include "TomahawkVersion.h"
+
+#include "SourceList.h"
+
+#include "accounts/AccountManager.h"
+#include "network/Servent.h"
+#include "sip/SipHandler.h"
+#include "utils/TomahawkUtilsGui.h"
+#include "utils/Logger.h"
+#include "infosystem/InfoSystem.h"
+#include "infosystem/InfoSystemWorker.h"
 
 #include <QLabel>
 #include <QTextEdit>
@@ -29,14 +40,6 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QDebug>
-
-#include "accounts/AccountManager.h"
-#include "network/Servent.h"
-#include "SourceList.h"
-
-#include "sip/SipHandler.h"
-#include "utils/TomahawkUtilsGui.h"
-#include "utils/Logger.h"
 
 
 DiagnosticsDialog::DiagnosticsDialog( QWidget *parent )
@@ -59,7 +62,8 @@ DiagnosticsDialog::updateLogView()
     QString log;
 
     log.append( QString( "TOMAHAWK DIAGNOSTICS LOG -%1 \n\n" ).arg( QDateTime::currentDateTime().toString() ) );
-    log.append( "TOMAHAWK-VERSION: " TOMAHAWK_VERSION "\n\n" );
+    log.append( "TOMAHAWK-VERSION: " TOMAHAWK_VERSION "\n" );
+    log.append( "PLATFORM: " TOMAHAWK_SYSTEM "\n\n");
     log.append( "NETWORK:\n    General:\n" );
 
     if ( Servent::instance()->visibleExternally() )
@@ -77,8 +81,21 @@ DiagnosticsDialog::updateLogView()
     }
     else
     {
-        log.append( "      visible: false" );
+        log.append( "      visible: false\n" );
     }
+
+    log.append( "\n\nINFOPLUGINS:\n" );
+    QThread* infoSystemWorkerThreadSuperClass = Tomahawk::InfoSystem::InfoSystem::instance()->workerThread();
+    Tomahawk::InfoSystem::InfoSystemWorkerThread* infoSystemWorkerThread = qobject_cast< Tomahawk::InfoSystem::InfoSystemWorkerThread* >(infoSystemWorkerThreadSuperClass);
+
+    foreach(const Tomahawk::InfoSystem::InfoPluginPtr& plugin, infoSystemWorkerThread->worker()->plugins())
+    {
+        log.append("      ");
+        log.append( plugin->friendlyName() );
+        log.append("\n");
+    }
+
+    log.append( "\n\n" );
 
     log.append( "ACCOUNTS:\n" );
 

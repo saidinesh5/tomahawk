@@ -36,6 +36,7 @@ namespace InfoSystem
 
 class INFOPLUGINDLLEXPORT ChartsPlugin : public InfoPlugin
 {
+    Q_PLUGIN_METADATA( IID "org.tomahawk-player.Player.InfoPlugin" )
     Q_OBJECT
     Q_INTERFACES( Tomahawk::InfoSystem::InfoPlugin )
 
@@ -99,15 +100,19 @@ private:
     void fetchChartCapabilitiesFromCache( Tomahawk::InfoSystem::InfoRequestData requestData );
     void dataError( Tomahawk::InfoSystem::InfoRequestData requestData );
 
-    QStringList m_chartResources;
+
+    qlonglong getMaxAge( const QByteArray &rawHeader ) const;
+    qlonglong getMaxAge( const qlonglong expires ) const;
+
+    QList< Tomahawk::InfoSystem::InfoStringHash > m_chartResources;
+    QStringList m_refetchSource;
     QString m_chartVersion;
-    QList< InfoStringHash > m_charts;
     ChartType m_chartType;
     QVariantMap m_allChartsMap;
     uint m_chartsFetchJobs;
     QList< InfoRequestData > m_cachedRequests;
     QHash< QString, QString > m_cachedCountries;
-    QWeakPointer< QNetworkAccessManager > m_nam;
+    QPointer< QNetworkAccessManager > m_nam;
 };
 
 }

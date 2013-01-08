@@ -19,20 +19,20 @@
 
 #include "PlaylistItems.h"
 
-#include <QMimeData>
-#include <QPainter>
-
 #include "Query.h"
 #include "ViewManager.h"
-#include "playlist/dynamic/GeneratorInterface.h"
-#include "playlist/PlaylistView.h"
 #include "CategoryItems.h"
 #include "SourceItem.h"
-#include "utils/TomahawkUtils.h"
-#include "utils/Logger.h"
 #include "DropJob.h"
 #include "Source.h"
 #include "audio/AudioEngine.h"
+#include "playlist/dynamic/GeneratorInterface.h"
+#include "playlist/PlaylistView.h"
+#include "utils/TomahawkUtilsGui.h"
+#include "utils/Logger.h"
+
+#include <QMimeData>
+#include <QPainter>
 
 using namespace Tomahawk;
 
@@ -49,9 +49,7 @@ PlaylistItem::PlaylistItem( SourcesModel* mdl, SourceTreeItem* parent, const pla
     connect( pl.data(), SIGNAL( changed() ),
              SLOT( onUpdated() ), Qt::QueuedConnection );
 
-    m_icon = QIcon( RESPATH "images/playlist-icon.png" );
-
-    if( ViewManager::instance()->pageForPlaylist( pl ) )
+    if ( ViewManager::instance()->pageForPlaylist( pl ) )
         model()->linkSourceItemToPage( this, ViewManager::instance()->pageForPlaylist( pl ) );
 
     if ( !m_playlist->updaters().isEmpty() )
@@ -291,6 +289,29 @@ PlaylistItem::onUpdated()
     emit updated();
 }
 
+bool
+PlaylistItem::collaborative() const
+{
+    Q_ASSERT( !m_playlist.isNull() );
+
+    if ( m_playlist->updaters().isEmpty() )
+        return false;
+
+    bool collaborative = false;
+
+    foreach ( PlaylistUpdaterInterface* updater, m_playlist->updaters() )
+    {
+        if( !updater->collaborative() )
+            continue;
+        /// @note:  We only care for collaborations if in sync
+        if( !updater->sync() )
+            continue;
+        collaborative = updater->collaborative();
+    }
+
+    return collaborative;
+}
+
 
 bool
 PlaylistItem::createOverlay()
@@ -302,6 +323,7 @@ PlaylistItem::createOverlay()
 
     m_showSubscribed = false;
     m_canSubscribe = false;
+
     foreach ( PlaylistUpdaterInterface* updater, m_playlist->updaters() )
     {
         if ( updater->canSubscribe() )
@@ -313,9 +335,9 @@ PlaylistItem::createOverlay()
     }
 
     if ( m_canSubscribe && m_showSubscribed && m_subscribedOnIcon.isNull() )
-        m_subscribedOnIcon = QPixmap( RESPATH "images/subscribe-on.png" );
+        m_subscribedOnIcon = TomahawkUtils::defaultPixmap( TomahawkUtils::SubscribeOn, TomahawkUtils::Original, QSize( 20, 20 ) );
     else if ( m_canSubscribe && !m_showSubscribed && m_subscribedOffIcon.isNull() )
-        m_subscribedOffIcon = QPixmap( RESPATH "images/subscribe-off.png" );
+        m_subscribedOffIcon = TomahawkUtils::defaultPixmap( TomahawkUtils::SubscribeOff, TomahawkUtils::Original, QSize( 20, 20 ) );
 
     QList< QPixmap > icons;
     foreach ( PlaylistUpdaterInterface* updater, m_playlist->updaters() )
@@ -335,8 +357,7 @@ PlaylistItem::createOverlay()
     if ( icons.size() > 2 )
         icons = icons.mid( 0, 2 );
 
-
-    QPixmap base = m_icon.pixmap( 48, 48 );
+    QPixmap base = TomahawkUtils::defaultPixmap( TomahawkUtils::Playlist, TomahawkUtils::Original, QSize( 48, 48 ) );
     QPainter p( &base );
     const int w = base.width() / 2;
     QRect overlayRect( base.rect().right() - w, base.rect().height() - w, w, w );
@@ -348,6 +369,7 @@ PlaylistItem::createOverlay()
         // NOTE only works if icons.size == 2 as ensured above
         overlayRect.moveLeft( 0 );
     }
+
 
     p.end();
 
@@ -363,7 +385,7 @@ PlaylistItem::icon() const
     if ( !m_overlaidIcon.isNull() )
         return m_overlaidIcon;
     else
-        return m_icon;
+        return TomahawkUtils::defaultPixmap( TomahawkUtils::Playlist, TomahawkUtils::Original, QSize( 48, 48 ) );
 }
 
 
@@ -426,10 +448,7 @@ DynamicPlaylistItem::DynamicPlaylistItem( SourcesModel* mdl, SourceTreeItem* par
     connect( pl.data(), SIGNAL( dynamicRevisionLoaded( Tomahawk::DynamicPlaylistRevision ) ),
              SLOT( onDynamicPlaylistLoaded( Tomahawk::DynamicPlaylistRevision ) ), Qt::QueuedConnection );
 
-    m_stationIcon = QIcon( RESPATH "images/station.png" );
-    m_automaticPlaylistIcon = QIcon( RESPATH "images/automatic-playlist.png" );
-
-    if( ViewManager::instance()->pageForDynPlaylist( pl ) )
+    if ( ViewManager::instance()->pageForDynPlaylist( pl ) )
         model()->linkSourceItemToPage( this, ViewManager::instance()->pageForDynPlaylist( pl ) );
 }
 
@@ -555,11 +574,11 @@ DynamicPlaylistItem::icon() const
 {
     if ( m_dynplaylist->mode() == OnDemand )
     {
-        return m_stationIcon;
+        return TomahawkUtils::defaultPixmap( TomahawkUtils::Station );
     }
     else
     {
-        return m_automaticPlaylistIcon;
+        return TomahawkUtils::defaultPixmap( TomahawkUtils::AutomaticPlaylist );
     }
 }
 
@@ -585,3 +604,23 @@ DynamicPlaylistItem::isBeingPlayed() const
     return false;
 }
 
+
+bool
+PlaylistItem::canSubscribe() const
+{
+    return m_canSubscribe;
+}
+
+
+bool
+PlaylistItem::subscribed() const
+{
+    return m_showSubscribed;
+}
+
+
+QPixmap
+PlaylistItem::subscribedIcon() const
+{
+    return m_showSubscribed ? m_subscribedOnIcon : m_subscribedOffIcon;
+}

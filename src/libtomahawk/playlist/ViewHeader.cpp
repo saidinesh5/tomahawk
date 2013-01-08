@@ -32,10 +32,15 @@ ViewHeader::ViewHeader( QAbstractItemView* parent )
     , m_sigmap( new QSignalMapper( this ) )
     , m_init( false )
 {
+#if QT_VERSION >= QT_VERSION_CHECK( 5, 0, 0 )
+    setSectionResizeMode( QHeaderView::Interactive );
+    setSectionsMovable( true );
+#else
     setResizeMode( QHeaderView::Interactive );
+    setMovable( true );
+#endif
     setMinimumSectionSize( 60 );
     setDefaultAlignment( Qt::AlignLeft );
-    setMovable( true );
     setStretchLastSection( true );
 
 //    m_menu->addAction( tr( "Resize columns to fit window" ), this, SLOT( onToggleResizeColumns() ) );
@@ -60,6 +65,7 @@ ViewHeader::visibleSectionCount() const
 void
 ViewHeader::onSectionsChanged()
 {
+    tDebug( LOGVERBOSE ) << "Saving columns state for view guid:" << m_guid;
     if ( !m_guid.isEmpty() )
         TomahawkSettings::instance()->setPlaylistColumnSizes( m_guid, saveState() );
 }
@@ -71,19 +77,22 @@ ViewHeader::checkState()
     if ( !count() || m_init )
         return false;
 
+    disconnect( this, SIGNAL( sectionMoved( int, int, int ) ), this, SLOT( onSectionsChanged() ) );
+    disconnect( this, SIGNAL( sectionResized( int, int, int ) ), this, SLOT( onSectionsChanged() ) );
+
     QByteArray state;
+    tDebug( LOGVERBOSE ) << "Restoring columns state for view:" << m_guid;
+
     if ( !m_guid.isEmpty() )
         state = TomahawkSettings::instance()->playlistColumnSizes( m_guid );
 
     if ( !state.isEmpty() )
     {
         restoreState( state );
-
-        if ( m_guid.startsWith( "playlistview" ) ) // HACK
-            setSortIndicator( -1, Qt::AscendingOrder );
     }
     else
     {
+        tDebug( LOGVERBOSE ) << "Giving columns initial weighting:" << m_columnWeights;
         for ( int i = 0; i < count() - 1; i++ )
         {
             if ( isSectionHidden( i ) )
@@ -96,10 +105,10 @@ ViewHeader::checkState()
         }
     }
 
-    m_init = true;
     connect( this, SIGNAL( sectionMoved( int, int, int ) ), SLOT( onSectionsChanged() ) );
     connect( this, SIGNAL( sectionResized( int, int, int ) ), SLOT( onSectionsChanged() ) );
 
+    m_init = true;
     return true;
 }
 
@@ -140,10 +149,22 @@ ViewHeader::onToggleResizeColumns()
 void
 ViewHeader::toggleVisibility( int index )
 {
-    qDebug() << Q_FUNC_INFO << index;
-
     if ( isSectionHidden( index ) )
         showSection( index );
     else
         hideSection( index );
+}
+
+
+void ViewHeader::setGuid( const QString& guid )
+{
+    m_guid = guid;
+
+    // If we are _not_ initialized yet, this means we're still waiting for the view to resize initially.
+    // We need to wait with restoring our state (column sizes) until that has happened.
+    if ( m_init )
+    {
+        m_init = false;
+        checkState();
+    }
 }

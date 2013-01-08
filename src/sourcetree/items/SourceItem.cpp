@@ -25,16 +25,17 @@
 #include "Playlist.h"
 #include "GenericPageItems.h"
 #include "LovedTracksItem.h"
-#include "utils/TomahawkUtilsGui.h"
-#include "utils/Logger.h"
+#include "Source.h"
+#include "SourceList.h"
 #include "widgets/SocialPlaylistWidget.h"
 #include "playlist/FlexibleView.h"
 #include "playlist/PlaylistView.h"
 #include "playlist/RecentlyAddedModel.h"
 #include "playlist/RecentlyPlayedModel.h"
 #include "playlist/PlaylistLargeItemDelegate.h"
-#include "Source.h"
-#include "SourceList.h"
+#include "utils/ImageRegistry.h"
+#include "utils/TomahawkUtilsGui.h"
+#include "utils/Logger.h"
 
 /// SourceItem
 
@@ -57,11 +58,10 @@ SourceItem::SourceItem( SourcesModel* mdl, SourceTreeItem* parent, const Tomahaw
 {
     if ( m_source.isNull() )
     {
-        m_superCol = TomahawkUtils::createAvatarFrame( QPixmap( RESPATH "images/supercollection.png" ) );
         return;
     }
 
-    m_collectionItem = new GenericPageItem( model(), this, tr( "Collection" ), QIcon( RESPATH "images/collection.png" ), //FIXME different icon
+    m_collectionItem = new GenericPageItem( model(), this, tr( "Collection" ), ImageRegistry::instance()->icon( RESPATH "images/collection.svg" ), //FIXME different icon
                                             boost::bind( &SourceItem::collectionClicked, this ),
                                             boost::bind( &SourceItem::getCollectionPage, this ) );
 
@@ -69,11 +69,11 @@ SourceItem::SourceItem( SourcesModel* mdl, SourceTreeItem* parent, const Tomahaw
                                             boost::bind( &SourceItem::sourceInfoClicked, this ),
                                             boost::bind( &SourceItem::getSourceInfoPage, this ) );*/
 
-    m_latestAdditionsItem = new GenericPageItem( model(), this, tr( "Latest Additions" ), QIcon( RESPATH "images/new-additions.png" ),
+    m_latestAdditionsItem = new GenericPageItem( model(), this, tr( "Latest Additions" ), ImageRegistry::instance()->icon( RESPATH "images/new-additions.svg" ),
                                                  boost::bind( &SourceItem::latestAdditionsClicked, this ),
                                                  boost::bind( &SourceItem::getLatestAdditionsPage, this ) );
 
-    m_recentPlaysItem = new GenericPageItem( model(), this, tr( "Recently Played" ), QIcon( RESPATH "images/recently-played.png" ),
+    m_recentPlaysItem = new GenericPageItem( model(), this, tr( "Recently Played" ), ImageRegistry::instance()->icon( RESPATH "images/recently-played.svg" ),
                                              boost::bind( &SourceItem::recentPlaysClicked, this ),
                                              boost::bind( &SourceItem::getRecentPlaysPage, this ) );
 
@@ -103,8 +103,6 @@ SourceItem::SourceItem( SourcesModel* mdl, SourceTreeItem* parent, const Tomahaw
 
 /*    if ( ViewManager::instance()->pageForCollection( source->collection() ) )
         model()->linkSourceItemToPage( this, ViewManager::instance()->pageForCollection( source->collection() ) );*/
-
-    m_defaultAvatar = TomahawkUtils::createAvatarFrame( QPixmap( RESPATH "images/user-avatar.png" ) );
 
     // load auto playlists and stations!
 
@@ -190,14 +188,23 @@ SourceItem::activate()
 QIcon
 SourceItem::icon() const
 {
+    return pixmap();
+}
+
+
+QPixmap
+SourceItem::pixmap( const QSize& size ) const
+{
     if ( m_source.isNull() )
-       return m_superCol;
+    {
+       return TomahawkUtils::defaultPixmap( TomahawkUtils::SuperCollection, TomahawkUtils::Original, size );
+    }
     else
     {
         if ( m_source->avatar().isNull() )
-            return m_defaultAvatar;
+            return TomahawkUtils::defaultPixmap( TomahawkUtils::DefaultSourceAvatar, TomahawkUtils::RoundedCorners );
         else
-            return m_source->avatar( Source::FancyStyle );
+            return m_source->avatar( TomahawkUtils::RoundedCorners, size );
     }
 }
 
@@ -509,7 +516,7 @@ SourceItem::latestAdditionsClicked()
     if ( !m_latestAdditionsPage )
     {
         FlexibleView* pv = new FlexibleView( ViewManager::instance()->widget() );
-        pv->setPixmap( QPixmap( RESPATH "images/new-additions.png" ) );
+        pv->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::NewAdditions, TomahawkUtils::Original ) );
 
         RecentlyAddedModel* raModel = new RecentlyAddedModel( pv );
         raModel->setTitle( tr( "Latest Additions" ) );
@@ -528,6 +535,8 @@ SourceItem::latestAdditionsClicked()
         pv->detailedView()->sortByColumn( PlayableModel::Age, Qt::DescendingOrder );
         pv->setEmptyTip( tr( "Sorry, we could not find any recent additions!" ) );
         raModel->setSource( m_source );
+
+        pv->setGuid( QString( "latestadditions/%1" ).arg( m_source->userName() ) );
 
         m_latestAdditionsPage = pv;
     }
@@ -550,7 +559,7 @@ SourceItem::recentPlaysClicked()
     if ( !m_recentPlaysPage )
     {
         FlexibleView* pv = new FlexibleView( ViewManager::instance()->widget() );
-        pv->setPixmap( QPixmap( RESPATH "images/recently-played.png" ) );
+        pv->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::RecentlyPlayed ) );
 
         RecentlyPlayedModel* raModel = new RecentlyPlayedModel( pv );
         raModel->setTitle( tr( "Recently Played Tracks" ) );
@@ -568,6 +577,8 @@ SourceItem::recentPlaysClicked()
         pv->setEmptyTip( tr( "Sorry, we could not find any recent plays!" ) );
         raModel->setSource( m_source );
 
+        pv->setGuid( QString( "recentplays/%1" ).arg( m_source->userName() ) );
+
         m_recentPlaysPage = pv;
     }
 
@@ -580,4 +591,32 @@ ViewPage*
 SourceItem::getRecentPlaysPage() const
 {
     return m_recentPlaysPage;
+}
+
+
+CategoryItem*
+SourceItem::stationsCategory() const
+{
+    return m_stations;
+}
+
+
+CategoryItem*
+SourceItem::playlistsCategory() const
+{
+    return m_playlists;
+}
+
+
+void
+SourceItem::setStationsCategory(CategoryItem* item)
+{
+    m_stations = item;
+}
+
+
+void
+SourceItem::setPlaylistsCategory(CategoryItem* item)
+{
+    m_playlists = item;
 }

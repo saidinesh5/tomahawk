@@ -19,26 +19,29 @@
 
 #include "TrackView.h"
 
-#include <QKeyEvent>
-#include <QPainter>
-#include <QScrollBar>
-
 #include "ViewHeader.h"
 #include "ViewManager.h"
 #include "PlayableModel.h"
 #include "PlayableProxyModel.h"
 #include "PlayableItem.h"
-#include "audio/AudioEngine.h"
-#include "context/ContextWidget.h"
-#include "widgets/OverlayWidget.h"
-#include "utils/TomahawkUtilsGui.h"
-#include "utils/Logger.h"
-#include "utils/Closure.h"
 #include "DropJob.h"
 #include "Artist.h"
 #include "Album.h"
 #include "Source.h"
+#include "TomahawkSettings.h"
+#include "audio/AudioEngine.h"
+#include "context/ContextWidget.h"
+#include "widgets/OverlayWidget.h"
+#include "utils/TomahawkUtilsGui.h"
+#include "utils/Closure.h"
 #include "utils/AnimatedSpinner.h"
+#include "utils/Logger.h"
+
+
+#include <QKeyEvent>
+#include <QPainter>
+#include <QScrollBar>
+#include <QDrag>
 
 #define SCROLL_TIMEOUT 280
 
@@ -74,22 +77,12 @@ TrackView::TrackView( QWidget* parent )
     setVerticalScrollMode( QAbstractItemView::ScrollPerPixel );
     setRootIsDecorated( false );
     setUniformRowHeights( true );
+    setAutoResize( false );
 
     setHeader( m_header );
     setSortingEnabled( true );
     sortByColumn( -1 );
     setContextMenuPolicy( Qt::CustomContextMenu );
-
-#ifndef Q_WS_WIN
-    QFont f = font();
-    f.setPointSize( f.pointSize() - 1 );
-    setFont( f );
-#endif
-
-#ifdef Q_WS_MAC
-    f.setPointSize( f.pointSize() - 2 );
-    setFont( f );
-#endif
 
     m_timer.setInterval( SCROLL_TIMEOUT );
     connect( verticalScrollBar(), SIGNAL( rangeChanged( int, int ) ), SLOT( onViewChanged() ) );
@@ -106,23 +99,69 @@ TrackView::TrackView( QWidget* parent )
 
 TrackView::~TrackView()
 {
-    tDebug() << Q_FUNC_INFO;
+    tDebug() << Q_FUNC_INFO << ( m_guid.isEmpty() ? QString( "with empty guid" ) : QString( "with guid %1" ).arg( m_guid ) );
+
+    if ( !m_guid.isEmpty() && proxyModel()->playlistInterface() )
+    {
+        tDebug() << Q_FUNC_INFO << "Storing shuffle & random mode settings for guid" << m_guid;
+
+        TomahawkSettings* s = TomahawkSettings::instance();
+        s->setShuffleState( m_guid, proxyModel()->playlistInterface()->shuffled() );
+        s->setRepeatMode( m_guid, proxyModel()->playlistInterface()->repeatMode() );
+    }
+}
+
+
+QString
+TrackView::guid() const
+{
+    if ( m_guid.isEmpty() )
+        return QString();
+
+    return QString( "%1/%2" ).arg( m_guid ).arg( m_proxyModel->columnCount() );
 }
 
 
 void
-TrackView::setGuid( const QString& guid )
+TrackView::setGuid( const QString& newguid )
 {
-    m_guid = guid;
-    m_header->setGuid( guid );
+    if ( !newguid.isEmpty() )
+    {
+        tDebug() << Q_FUNC_INFO << "Setting guid on header" << newguid << "for a view with" << m_proxyModel->columnCount() << "columns";
+
+        m_guid = newguid;
+        m_header->setGuid( guid() );
+
+        if ( !m_guid.isEmpty() && proxyModel()->playlistInterface() )
+        {
+            tDebug() << Q_FUNC_INFO << "Restoring shuffle & random mode settings for guid" << m_guid;
+
+            TomahawkSettings* s = TomahawkSettings::instance();
+            proxyModel()->playlistInterface()->setShuffled( s->shuffleState( m_guid ) );
+            proxyModel()->playlistInterface()->setRepeatMode( s->repeatMode( m_guid ) );
+        }
+    }
 }
 
 
 void
 TrackView::setProxyModel( PlayableProxyModel* model )
 {
+    if ( m_proxyModel )
+    {
+        disconnect( m_proxyModel, SIGNAL( filterChanged( QString ) ), this, SLOT( onFilterChanged( QString ) ) );
+        disconnect( m_proxyModel, SIGNAL( rowsInserted( QModelIndex, int, int ) ), this, SLOT( onViewChanged() ) );
+        disconnect( m_proxyModel, SIGNAL( rowsInserted( QModelIndex, int, int ) ), this, SLOT( verifySize() ) );
+        disconnect( m_proxyModel, SIGNAL( rowsRemoved( QModelIndex, int, int ) ), this, SLOT( verifySize() ) );
+    }
+    
     m_proxyModel = model;
 
+    connect( m_proxyModel, SIGNAL( filterChanged( QString ) ), SLOT( onFilterChanged( QString ) ) );
+    connect( m_proxyModel, SIGNAL( rowsInserted( QModelIndex, int, int ) ), SLOT( onViewChanged() ) );
+    connect( m_proxyModel, SIGNAL( rowsInserted( QModelIndex, int, int ) ), SLOT( verifySize() ) );
+    connect( m_proxyModel, SIGNAL( rowsRemoved( QModelIndex, int, int ) ), SLOT( verifySize() ) );
+    
     m_delegate = new PlaylistItemDelegate( this, m_proxyModel );
     setItemDelegate( m_delegate );
 
@@ -140,6 +179,17 @@ TrackView::setModel( QAbstractItemModel* model )
 
 
 void
+TrackView::setPlaylistItemDelegate( PlaylistItemDelegate* delegate )
+{
+    m_delegate = delegate;
+    setItemDelegate( delegate );
+    connect( delegate, SIGNAL( updateIndex( QModelIndex ) ), SLOT( update( QModelIndex ) ) );
+
+    verifySize();
+}
+
+
+void
 TrackView::setPlayableModel( PlayableModel* model )
 {
     m_model = model;
@@ -149,11 +199,9 @@ TrackView::setPlayableModel( PlayableModel* model )
         m_proxyModel->setSourcePlayableModel( m_model );
     }
 
-    connect( m_proxyModel, SIGNAL( filterChanged( QString ) ), SLOT( onFilterChanged( QString ) ) );
-    connect( m_proxyModel, SIGNAL( rowsInserted( QModelIndex, int, int ) ), SLOT( onViewChanged() ) );
-
     setAcceptDrops( true );
     m_header->setDefaultColumnWeights( m_proxyModel->columnWeights() );
+    setGuid( m_proxyModel->guid() );
 
     switch( m_proxyModel->style() )
     {
@@ -253,7 +301,6 @@ TrackView::autoPlayResolveFinished( const query_ptr& query, int row )
     const QModelIndex sib = index.sibling( index.row() + 1, index.column() );
     if ( sib.isValid() )
         startAutoPlay( sib );
-
 }
 
 
@@ -313,8 +360,7 @@ TrackView::tryToPlayItem( const QModelIndex& index )
     PlayableItem* item = m_model->itemFromIndex( m_proxyModel->mapToSource( index ) );
     if ( item && !item->query().isNull() )
     {
-        m_proxyModel->setCurrentIndex( index );
-        AudioEngine::instance()->playItem( m_proxyModel->playlistInterface(), item->query() );
+        AudioEngine::instance()->playItem( playlistInterface(), item->query() );
 
         return true;
     }
@@ -334,6 +380,11 @@ TrackView::keyPressEvent( QKeyEvent* event )
     if ( event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return )
     {
         onItemActivated( currentIndex() );
+    }
+    if ( event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace )
+    {
+        tDebug() << "Removing selected items from playlist";
+        deleteSelectedItems();
     }
 }
 
@@ -360,6 +411,8 @@ TrackView::resizeEvent( QResizeEvent* event )
 
     int sortSection = m_header->sortIndicatorSection();
     Qt::SortOrder sortOrder = m_header->sortIndicatorOrder();
+
+    tDebug() << Q_FUNC_INFO << width();
 
     if ( m_header->checkState() && sortSection >= 0 )
     {
@@ -563,6 +616,7 @@ void
 TrackView::onCustomContextMenu( const QPoint& pos )
 {
     m_contextMenu->clear();
+    m_contextMenu->setPlaylistInterface( playlistInterface() );
 
     QModelIndex idx = indexAt( pos );
     idx = idx.sibling( idx.row(), 0 );
@@ -602,6 +656,10 @@ TrackView::onMenuTriggered( int action )
     {
         case ContextMenu::ActionPlay:
             onItemActivated( m_contextMenuIndex );
+            break;
+
+        case ContextMenu::ActionDelete:
+            deleteSelectedItems();
             break;
 
         default:
@@ -716,6 +774,13 @@ TrackView::playlistInterface() const
 }
 
 
+void
+TrackView::setPlaylistInterface( const Tomahawk::playlistinterface_ptr& playlistInterface )
+{
+    proxyModel()->setPlaylistInterface( playlistInterface );
+}
+
+
 QString
 TrackView::title() const
 {
@@ -733,7 +798,7 @@ TrackView::description() const
 QPixmap
 TrackView::pixmap() const
 {
-    return QPixmap( RESPATH "images/music-icon.png" );
+    return TomahawkUtils::defaultPixmap( TomahawkUtils::SuperCollection );
 }
 
 
@@ -751,4 +816,39 @@ TrackView::setFilter( const QString& filter )
     ViewPage::setFilter( filter );
     m_proxyModel->setFilter( filter );
     return true;
+}
+
+
+void
+TrackView::deleteSelectedItems()
+{
+    if ( !model()->isReadOnly() )
+    {
+        proxyModel()->removeIndexes( selectedIndexes() );
+    }
+    else
+    {
+        tDebug() << Q_FUNC_INFO << "Error: Model is read-only!";
+    }
+}
+
+
+void
+TrackView::verifySize()
+{
+    if ( !autoResize() || !m_proxyModel )
+        return;
+
+    if ( m_proxyModel->rowCount() > 0 )
+        setFixedHeight( m_proxyModel->rowCount() * m_delegate->sizeHint( QStyleOptionViewItem(), m_proxyModel->index( 0, 0 ) ).height() + frameWidth() * 2 );
+}
+
+
+void
+TrackView::setAutoResize( bool b )
+{
+    m_autoResize = b;
+
+    if ( m_autoResize )
+        setVerticalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
 }

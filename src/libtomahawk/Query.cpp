@@ -82,7 +82,7 @@ PlaybackLog::PlaybackLog( const PlaybackLog& other )
 query_ptr
 Query::get( const QString& artist, const QString& track, const QString& album, const QID& qid, bool autoResolve )
 {
-    if (  artist.trimmed().isEmpty() || track.trimmed().isEmpty() )
+    if ( artist.trimmed().isEmpty() || track.trimmed().isEmpty() )
         return query_ptr();
 
     if ( qid.isEmpty() )
@@ -164,6 +164,7 @@ Query::init()
     m_duration = -1;
     m_albumpos = 0;
     m_discnumber = 0;
+    m_saveResultHint = false;
 
     updateSortNames();
 }
@@ -388,7 +389,7 @@ Query::currentResolver() const
     int x = m_resolvers.count();
     while ( --x )
     {
-        QWeakPointer< Resolver > r = m_resolvers.at( x );
+        QPointer< Resolver > r = m_resolvers.at( x );
         if ( r.isNull() )
             continue;
 
@@ -493,9 +494,19 @@ QString
 Query::toString() const
 {
     if ( !isFullTextQuery() )
-        return QString( "Query(%1, %2 - %3)" ).arg( id() ).arg( artist() ).arg( track() );
+    {
+        return QString( "Query(%1, %2 - %3%4)" )
+                  .arg( id() )
+                  .arg( artist() )
+                  .arg( track() )
+                  .arg( album().isEmpty() ? "" : QString( " on %1" ).arg( album() ) );
+    }
     else
-        return QString( "Query(%1, Fulltext: %2)" ).arg( id() ).arg( fullTextQuery() );
+    {
+        return QString( "Query(%1, Fulltext: %2)" )
+                  .arg( id() )
+                  .arg( fullTextQuery() );
+    }
 }
 
 
@@ -762,12 +773,19 @@ Query::socialActionDescription( const QString& action, DescriptionMode mode ) co
             desc += " " + tr( "and" ) + " <b>" + tr( "%n other(s)", "", loveCounter - 3 ) + "</b>";
 
         if ( mode == Short )
-            desc = "<b>" + tr( "%1 people" ).arg( loveCounter ) + "</b>";
+            desc = "<b>" + tr( "%n people", "", loveCounter ) + "</b>";
 
         desc += " " + tr( "loved this track" ); //FIXME: more action descs required
     }
 
     return desc;
+}
+
+
+void
+Query::setSaveHTTPResultHint( bool saveResultHint )
+{
+    m_saveResultHint = saveResultHint;
 }
 
 

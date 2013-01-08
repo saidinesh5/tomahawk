@@ -20,17 +20,6 @@
 
 #include "SourceTreeView.h"
 
-#include <QtGui/QAction>
-#include <QtGui/QApplication>
-#include <QtGui/QContextMenuEvent>
-#include <QtGui/QDragEnterEvent>
-#include <QtGui/QHeaderView>
-#include <QtGui/QPainter>
-#include <QtGui/QStyledItemDelegate>
-#include <QtGui/QFileDialog>
-#include <QtGui/QMessageBox>
-#include <QtCore/QSize>
-
 #include "ActionCollection.h"
 #include "Playlist.h"
 #include "ViewManager.h"
@@ -54,6 +43,17 @@
 #include "utils/Closure.h"
 #include "widgets/SourceTreePopupDialog.h"
 
+#include <QAction>
+#include <QApplication>
+#include <QContextMenuEvent>
+#include <QDragEnterEvent>
+#include <QHeaderView>
+#include <QPainter>
+#include <QStyledItemDelegate>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QSize>
+
 using namespace Tomahawk;
 
 
@@ -67,7 +67,12 @@ SourceTreeView::SourceTreeView( QWidget* parent )
     setFrameShape( QFrame::NoFrame );
     setAttribute( Qt::WA_MacShowFocusRect, 0 );
     setContentsMargins( 0, 0, 0, 0 );
-    setMinimumWidth( 220 );
+
+    QFont fnt;
+    QFontMetrics fm( fnt );
+    // This is sort of the longest string in there. With translations
+    // we will never get it right so setting it to something reasonable for the average case
+    setMinimumWidth( fm.width( "Track Album Artist Local Top10" ) );
 
     setHeaderHidden( true );
     setRootIsDecorated( true );
@@ -85,6 +90,7 @@ SourceTreeView::SourceTreeView( QWidget* parent )
     setVerticalScrollMode( QTreeView::ScrollPerPixel );
     setMouseTracking( true );
     setEditTriggers( NoEditTriggers );
+    setAutoExpandDelay( 500 );
 
     // TODO animation conflicts with the expanding-playlists-when-collection-is-null
     // so investigate
@@ -111,7 +117,11 @@ SourceTreeView::SourceTreeView( QWidget* parent )
     setModel( m_proxyModel );
 
     header()->setStretchLastSection( false );
+#if QT_VERSION >= QT_VERSION_CHECK( 5, 0, 0 )
+    header()->setSectionResizeMode( 0, QHeaderView::Stretch );
+#else
     header()->setResizeMode( 0, QHeaderView::Stretch );
+#endif
 
     connect( this, SIGNAL( expanded( QModelIndex ) ), SLOT( onItemExpanded( QModelIndex ) ) );
     connect( selectionModel(), SIGNAL( selectionChanged( QItemSelection, QItemSelection ) ), SLOT( onSelectionChanged() ) );
@@ -366,8 +376,11 @@ SourceTreeView::deletePlaylist( const QModelIndex& idxIn )
 
     PlaylistItem* item = itemFromIndex< PlaylistItem >( idx );
     playlist_ptr playlist = item->playlist();
+    QPoint rightCenter = viewport()->mapToGlobal( visualRect( idx ).topRight() + QPoint( 0, visualRect( idx ).height() / 2 ) );
+#ifdef Q_OS_WIN
+    rightCenter = QApplication::activeWindow()->mapFromGlobal( rightCenter );
+#endif
 
-    const QPoint rightCenter = viewport()->mapToGlobal( visualRect( idx ).topRight() + QPoint( 0, visualRect( idx ).height() / 2 ) );
     if ( playlist->hasCustomDeleter() )
     {
         playlist->customDelete( rightCenter );
@@ -376,7 +389,7 @@ SourceTreeView::deletePlaylist( const QModelIndex& idxIn )
     {
         if ( m_popupDialog.isNull() )
         {
-            m_popupDialog = QWeakPointer< SourceTreePopupDialog >( new SourceTreePopupDialog() );
+            m_popupDialog = QPointer< SourceTreePopupDialog >( new SourceTreePopupDialog() );
             connect( m_popupDialog.data(), SIGNAL( result( bool ) ), this, SLOT( onDeletePlaylistResult( bool ) ) );
         }
 

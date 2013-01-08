@@ -22,8 +22,6 @@
 #include "Zeroconf.h"
 #include "Source.h"
 
-#include <QtCore/QtPlugin>
-
 using namespace Tomahawk;
 using namespace Accounts;
 
@@ -64,8 +62,8 @@ ZeroconfFactory::icon() const
 ZeroconfAccount::ZeroconfAccount( const QString& accountId )
     : Account( accountId )
 {
-    setAccountServiceName( "Local Network" );
-    setAccountFriendlyName( "Local Network" );
+    setAccountServiceName( tr( "Local Network" ) );
+    setAccountFriendlyName( tr( "Local Network" ) );
 
     setTypes( SipType );
 }
@@ -120,7 +118,7 @@ SipPlugin*
 ZeroconfAccount::sipPlugin()
 {
     if ( m_sipPlugin.isNull() )
-        m_sipPlugin = QWeakPointer< ZeroconfPlugin >( new ZeroconfPlugin( this ) );
+        m_sipPlugin = QPointer< ZeroconfPlugin >( new ZeroconfPlugin( this ) );
 
     return m_sipPlugin.data();
 }

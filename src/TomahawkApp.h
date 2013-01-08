@@ -23,22 +23,23 @@
 
 #define APP TomahawkApp::instance()
 
-#include "HeadlessCheck.h"
-#include "config.h"
-
-#include <QtCore/QRegExp>
-#include <QtCore/QFile>
-#include <QtCore/QSettings>
-#include <QtCore/QDir>
-#include <QtCore/QPersistentModelIndex>
-
-#include "QxtHttpServerConnector"
-#include "QxtHttpSessionManager"
-
 #include "mac/TomahawkApp_Mac.h" // for PlatforInterface
 #include "Typedefs.h"
 #include "utils/TomahawkUtils.h"
 #include "thirdparty/kdsingleapplicationguard/kdsingleapplicationguard.h"
+
+#include "HeadlessCheck.h"
+#include "config.h"
+
+#include <QxtWeb/QxtHttpServerConnector>
+#include <QxtWeb/HttpSessionManager>
+
+#include <QRegExp>
+#include <QFile>
+#include <QSettings>
+#include <QDir>
+#include <QPersistentModelIndex>
+#include <QPointer>
 
 class AudioEngine;
 class Database;
@@ -46,7 +47,6 @@ class ScanManager;
 class Servent;
 class SipHandler;
 class TomahawkSettings;
-class XMPPBot;
 class AudioControls;
 
 namespace Tomahawk
@@ -87,17 +87,15 @@ public:
     void init();
     static TomahawkApp* instance();
 
-    XMPPBot* xmppBot() { return m_xmppBot.data(); }
-
 #ifndef ENABLE_HEADLESS
     AudioControls* audioControls();
-    TomahawkWindow* mainWindow() const { return m_mainwindow; }
+    TomahawkWindow* mainWindow() const;
 #endif
 
     // PlatformInterface
     virtual bool loadUrl( const QString& url );
 
-    bool isTomahawkLoaded() const { return m_loaded; }
+    bool isTomahawkLoaded() const;
 
     // reimplemented from QApplication/QCoreApplication
     virtual bool notify( QObject* receiver, QEvent* e );
@@ -118,7 +116,6 @@ private slots:
     void accountManagerReady();
 
 private:
-    void installTranslator();
     void registerMetaTypes();
 
     void printHelp();
@@ -128,14 +125,13 @@ private:
     void initLocalCollection();
     void initPipeline();
 
-    QWeakPointer<Database> m_database;
-    QWeakPointer<ScanManager> m_scanManager;
-    QWeakPointer<AudioEngine> m_audioEngine;
-    QWeakPointer<Servent> m_servent;
-    QWeakPointer<Tomahawk::InfoSystem::InfoSystem> m_infoSystem;
-    QWeakPointer<XMPPBot> m_xmppBot;
-    QWeakPointer<Tomahawk::ShortcutHandler> m_shortcutHandler;
-    QWeakPointer< Tomahawk::Accounts::AccountManager > m_accountManager;
+    QPointer<Database> m_database;
+    QPointer<ScanManager> m_scanManager;
+    QPointer<AudioEngine> m_audioEngine;
+    QPointer<Servent> m_servent;
+    QPointer<Tomahawk::InfoSystem::InfoSystem> m_infoSystem;
+    QPointer<Tomahawk::ShortcutHandler> m_shortcutHandler;
+    QPointer< Tomahawk::Accounts::AccountManager > m_accountManager;
     bool m_scrubFriendlyName;
 
 #ifdef LIBLASTFM_FOUND
@@ -148,8 +144,8 @@ private:
 
     bool m_headless, m_loaded;
 
-    QWeakPointer< QxtHttpServerConnector > m_connector;
-    QWeakPointer< QxtHttpSessionManager > m_session;
+    QPointer< QxtHttpServerConnector > m_connector;
+    QPointer< QxtHttpSessionManager > m_session;
 };
 
 Q_DECLARE_METATYPE( PairList )

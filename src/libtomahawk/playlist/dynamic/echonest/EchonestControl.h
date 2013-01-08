@@ -19,11 +19,12 @@
 #ifndef ECHONEST_CONTROL_H
 #define ECHONEST_CONTROL_H
 
+#include "playlist/dynamic/DynamicControl.h"
+
 #include <echonest/Playlist.h>
 
-#include "dynamic/DynamicControl.h"
-
 #include <QTimer>
+#include <QPointer>
 
 namespace Tomahawk
 {
@@ -81,8 +82,8 @@ private:
     Echonest::DynamicPlaylist::PlaylistParam m_currentType;
     int m_overrideType;
 
-    QWeakPointer< QWidget > m_input;
-    QWeakPointer< QWidget > m_match;
+    QPointer< QWidget > m_input;
+    QPointer< QWidget > m_match;
     QString m_matchData;
     QString m_matchString;
     QString m_summary;

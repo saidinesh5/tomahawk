@@ -31,7 +31,8 @@
 
 #include "database/DatabaseCommand_UpdateSearchIndex.h"
 #include "database/Database.h"
-#include "PlaylistUpdaterInterface.h"
+#include "playlist/PlaylistUpdaterInterface.h"
+#include "infosystem/InfoSystemCache.h"
 
 using namespace Tomahawk;
 
@@ -372,7 +373,7 @@ TomahawkSettings::doUpgrade( int oldVersion, int newVersion )
             }
             else if ( pluginName == "sipzeroconf" )
             {
-                setValue( QString( "accounts/%1/accountfriendlyname" ).arg( accountKey ), "Local Network" );
+                setValue( QString( "accounts/%1/accountfriendlyname" ).arg( accountKey ), tr( "Local Network" ) );
             }
 
             beginGroup( "accounts/" + accountKey );
@@ -591,6 +592,20 @@ TomahawkSettings::doUpgrade( int oldVersion, int newVersion )
             createSpotifyAccount();
         }
     }
+    else if ( oldVersion == 12 )
+    {
+        // Force attica resolver pixmap cache refresh
+        QDir cacheDir = TomahawkUtils::appDataDir();
+        if ( cacheDir.cd( "atticacache" ) )
+        {
+            QStringList files = cacheDir.entryList( QStringList() << "*.png" );
+            foreach ( const QString& file, files )
+            {
+                const bool removed = cacheDir.remove( file );
+                tDebug() << "Tried to remove cached image, succeeded?" << removed << cacheDir.filePath( file );
+            }
+        }
+    }
 }
 
 
@@ -710,6 +725,20 @@ void
 TomahawkSettings::setCrashReporterEnabled( bool enable )
 {
     setValue( "ui/crashReporter", enable );
+}
+
+
+bool
+TomahawkSettings::songChangeNotificationEnabled() const
+{
+    return value( "ui/songChangeNotification", true ).toBool();
+}
+
+
+void
+TomahawkSettings::setSongChangeNotificationEnabled(bool enable)
+{
+    setValue( "ui/songChangeNotification", enable );
 }
 
 
@@ -901,6 +930,24 @@ TomahawkSettings::setVerboseNotifications( bool notifications )
     setValue( "ui/notifications/verbose", notifications );
 }
 
+bool
+TomahawkSettings::menuBarVisible() const
+{
+#ifndef Q_OS_MAC
+    return value( "ui/mainwindow/menuBarVisible", true ).toBool();
+#else
+    return true;
+#endif
+}
+
+void
+TomahawkSettings::setMenuBarVisible( bool visible )
+{
+#ifndef Q_OS_MAC
+    setValue( "ui/mainwindow/menuBarVisible", visible );
+#endif
+}
+
 
 bool
 TomahawkSettings::showOfflineSources() const
@@ -940,6 +987,9 @@ TomahawkSettings::playlistColumnSizes( const QString& playlistid ) const
 void
 TomahawkSettings::setPlaylistColumnSizes( const QString& playlistid, const QByteArray& state )
 {
+    if ( playlistid.isEmpty() )
+        return;
+
     setValue( QString( "ui/playlist/%1/columnSizes" ).arg( playlistid ), state );
 }
 
@@ -947,7 +997,7 @@ TomahawkSettings::setPlaylistColumnSizes( const QString& playlistid, const QByte
 bool
 TomahawkSettings::shuffleState( const QString& playlistid ) const
 {
-    return value( QString( "ui/playlist/%1/shuffleState" ).arg( playlistid )).toBool();
+    return value( QString( "ui/playlist/%1/shuffleState" ).arg( playlistid ) ).toBool();
 }
 
 
@@ -976,7 +1026,7 @@ TomahawkSettings::setRepeatMode( const QString& playlistid, Tomahawk::PlaylistMo
 Tomahawk::PlaylistModes::RepeatMode
 TomahawkSettings::repeatMode( const QString& playlistid )
 {
-    return (PlaylistModes::RepeatMode)value( QString( "ui/playlist/%1/repeatMode" ).arg( playlistid )).toInt();
+    return (PlaylistModes::RepeatMode)value( QString( "ui/playlist/%1/repeatMode" ).arg( playlistid ) ).toInt();
 }
 
 
@@ -1333,6 +1383,19 @@ void
 TomahawkSettings::setPlaylistUpdaters( const SerializedUpdaters& updaters )
 {
     setValue( "playlists/updaters", QVariant::fromValue< SerializedUpdaters >( updaters ) );
+}
+
+
+void
+TomahawkSettings::setLastChartIds( const QMap<QString, QVariant>& ids ){
+
+    setValue( "chartIds", QVariant::fromValue<QMap<QString, QVariant> >( ids ) );
+}
+
+
+QMap<QString, QVariant> TomahawkSettings::lastChartIds(){
+
+    return value( "chartIds" ).value<QMap<QString, QVariant> >();
 }
 
 

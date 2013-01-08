@@ -20,13 +20,6 @@
 
 #include "XspfLoader.h"
 
-#include "HeadlessCheck.h"
-
-#include <QDomDocument>
-
-#include "utils/TomahawkUtils.h"
-#include "utils/Logger.h"
-
 #ifndef ENABLE_HEADLESS
 #include "jobview/JobStatusView.h"
 #include "jobview/JobStatusModel.h"
@@ -35,8 +28,14 @@
 
 #include "SourceList.h"
 #include "Playlist.h"
-#include <XspfUpdater.h>
-#include <Pipeline.h>
+#include "playlist/XspfUpdater.h"
+#include "Pipeline.h"
+
+#include "utils/NetworkReply.h"
+#include "utils/TomahawkUtils.h"
+#include "utils/Logger.h"
+
+#include <QDomDocument>
 
 using namespace Tomahawk;
 
@@ -64,7 +63,7 @@ XSPFLoader::XSPFLoader( bool autoCreate, bool autoUpdate, QObject* parent )
     , m_autoUpdate( autoUpdate )
     , m_autoResolve( true )
     , m_autoDelete( true )
-    , m_NS("http://xspf.org/ns/0/")
+    , m_NS( "http://xspf.org/ns/0/" )
 {
     qRegisterMetaType< XSPFErrorCode >("XSPFErrorCode");
 }
@@ -89,20 +88,24 @@ XSPFLoader::entries() const
 }
 
 
+QString
+XSPFLoader::title() const
+{
+    return m_title;
+}
+
+
 void
 XSPFLoader::load( const QUrl& url )
 {
-    QNetworkRequest request( url );
     m_url = url;
+    QNetworkRequest request( url );
 
     Q_ASSERT( TomahawkUtils::nam() != 0 );
-    QNetworkReply* reply = TomahawkUtils::nam()->get( request );
+    NetworkReply* reply = new NetworkReply( TomahawkUtils::nam()->get( request ) );
 
-    connect( reply, SIGNAL( finished() ),
-                      SLOT( networkLoadFinished() ) );
-
-    connect( reply, SIGNAL( error( QNetworkReply::NetworkError ) ),
-                      SLOT( networkError( QNetworkReply::NetworkError ) ) );
+    connect( reply, SIGNAL( finished() ), SLOT( networkLoadFinished() ) );
+    connect( reply, SIGNAL( error( QNetworkReply::NetworkError ) ), SLOT( networkError( QNetworkReply::NetworkError ) ) );
 }
 
 
@@ -126,7 +129,7 @@ XSPFLoader::reportError()
 {
     emit error( FetchError );
 #ifndef ENABLE_HEADLESS
-    const QString errorMsg = errorToString( FetchError);
+    const QString errorMsg = errorToString( FetchError );
     if ( !m_errorTitle.isEmpty() )
         JobStatusView::instance()->model()->addJob( new ErrorStatusMessage( QString( "%1: %2" ).arg( m_errorTitle ).arg( errorMsg ) ) );
     else
@@ -139,12 +142,14 @@ XSPFLoader::reportError()
 void
 XSPFLoader::networkLoadFinished()
 {
-    QNetworkReply* reply = qobject_cast<QNetworkReply*>(sender());
-    if ( reply->error() != QNetworkReply::NoError )
-        return;
+    NetworkReply* r = qobject_cast<NetworkReply*>( sender() );
+    if ( r->reply()->error() == QNetworkReply::NoError )
+    {
+        m_body = r->reply()->readAll();
+        gotBody();
+    }
 
-    m_body = reply->readAll();
-    gotBody();
+    r->deleteLater();
 }
 
 
@@ -152,6 +157,9 @@ void
 XSPFLoader::networkError( QNetworkReply::NetworkError /* error */ )
 {
     reportError();
+
+    NetworkReply* r = qobject_cast<NetworkReply*>( sender() );
+    r->deleteLater();
 }
 
 
@@ -225,6 +233,10 @@ XSPFLoader::gotBody()
             {
                 url = n.text();
             }
+            else if ( n.namespaceURI() == m_NS && n.localName() == "location" )
+            {
+                url = n.text();
+            }
         }
 
         if ( artist.isEmpty() || track.isEmpty() )
@@ -243,7 +255,10 @@ XSPFLoader::gotBody()
 
         q->setDuration( duration.toInt() / 1000 );
         if ( !url.isEmpty() )
+        {
             q->setResultHint( url );
+            q->setSaveHTTPResultHint( true );
+        }
 
         m_entries << q;
     }
@@ -279,7 +294,7 @@ XSPFLoader::gotBody()
     else
     {
 
-        if( !m_entries.isEmpty() )
+        if ( !m_entries.isEmpty() )
             emit tracks( m_entries );
     }
 

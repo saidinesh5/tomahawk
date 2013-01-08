@@ -16,20 +16,22 @@
  *   along with Tomahawk. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "dynamic/echonest/EchonestControl.h"
+#include "playlist/dynamic/echonest/EchonestControl.h"
+
+#include "playlist/dynamic/widgets/MiscControlWidgets.h"
+
+#include "EchonestGenerator.h"
+
+#include "utils/Logger.h"
+#include "SourceList.h"
+
+#include <echonest/Playlist.h>
 
 #include <QComboBox>
 #include <QLineEdit>
 #include <QLabel>
 #include <QCompleter>
 #include <QStringListModel>
-
-#include "dynamic/widgets/MiscControlWidgets.h"
-#include <echonest/Playlist.h>
-#include "EchonestGenerator.h"
-
-#include "utils/Logger.h"
-#include <SourceList.h>
 
 
 QHash< QString, QStringList > Tomahawk::EchonestControl::s_suggestCache = QHash< QString, QStringList >();
@@ -179,8 +181,8 @@ Tomahawk::EchonestControl::updateWidgets()
 
         match->hide();
         input->hide();
-        m_match = QWeakPointer< QWidget >( match );
-        m_input = QWeakPointer< QWidget >( input );
+        m_match = QPointer< QWidget >( match );
+        m_input = QPointer< QWidget >( input );
         m_data.first = m_currentType;
     } else if( selectedType() == "Artist Description" ) {
         m_currentType = Echonest::DynamicPlaylist::Description;
@@ -198,8 +200,8 @@ Tomahawk::EchonestControl::updateWidgets()
 
         match->hide();
         input->hide();
-        m_match = QWeakPointer< QWidget >( match );
-        m_input = QWeakPointer< QWidget >( input );
+        m_match = QPointer< QWidget >( match );
+        m_input = QPointer< QWidget >( input );
         m_data.first = m_currentType;
     } else if( selectedType() == "User Radio" ) {
         m_currentType = Echonest::DynamicPlaylist::SourceCatalog;
@@ -227,8 +229,8 @@ Tomahawk::EchonestControl::updateWidgets()
 
         match->hide();
         combo->hide();
-        m_match = QWeakPointer< QWidget >( match );
-        m_input = QWeakPointer< QWidget >( combo );
+        m_match = QPointer< QWidget >( match );
+        m_input = QPointer< QWidget >( combo );
     } else if( selectedType() == "Song" ) {
         m_currentType = Echonest::DynamicPlaylist::SongId;
 
@@ -246,8 +248,8 @@ Tomahawk::EchonestControl::updateWidgets()
 
         match->hide();
         input->hide();
-        m_match = QWeakPointer< QWidget >( match );
-        m_input = QWeakPointer< QWidget >( input );
+        m_match = QPointer< QWidget >( match );
+        m_input = QPointer< QWidget >( input );
         m_data.first = m_currentType;
     } else if( selectedType() == "Variety" ) {
         m_currentType = Echonest::DynamicPlaylist::Variety;
@@ -267,8 +269,8 @@ Tomahawk::EchonestControl::updateWidgets()
 
         match->hide();
         input->hide();
-        m_match = QWeakPointer< QWidget >( match );
-        m_input = QWeakPointer< QWidget >( input );
+        m_match = QPointer< QWidget >( match );
+        m_input = QPointer< QWidget >( input );
         m_data.first = m_currentType;
     } else if( selectedType() == "Adventurousness" ) {
         m_currentType = Echonest::DynamicPlaylist::Adventurousness;
@@ -289,8 +291,8 @@ Tomahawk::EchonestControl::updateWidgets()
 
         match->hide();
         input->hide();
-        m_match = QWeakPointer< QWidget >( match );
-        m_input = QWeakPointer< QWidget >( input );
+        m_match = QPointer< QWidget >( match );
+        m_input = QPointer< QWidget >( input );
         m_data.first = m_currentType;
     } else if( selectedType() == "Tempo" ) {
         m_currentType = Echonest::DynamicPlaylist::MinTempo;
@@ -352,8 +354,8 @@ Tomahawk::EchonestControl::updateWidgets()
 
         match->hide();
         combo->hide();
-        m_match = QWeakPointer< QWidget >( match );
-        m_input = QWeakPointer< QWidget >( combo );
+        m_match = QPointer< QWidget >( match );
+        m_input = QPointer< QWidget >( combo );
     } else if( selectedType() == "Key" ) {
         m_currentType = Echonest::DynamicPlaylist::Key;
 
@@ -381,8 +383,8 @@ Tomahawk::EchonestControl::updateWidgets()
 
         match->hide();
         combo->hide();
-        m_match = QWeakPointer< QWidget >( match );
-        m_input = QWeakPointer< QWidget >( combo );
+        m_match = QPointer< QWidget >( match );
+        m_input = QPointer< QWidget >( combo );
     } else if( selectedType() == "Sorting" ) {
         m_currentType = Echonest::DynamicPlaylist::Sort;
 
@@ -414,8 +416,8 @@ Tomahawk::EchonestControl::updateWidgets()
 
         match->hide();
         combo->hide();
-        m_match = QWeakPointer< QWidget >( match );
-        m_input = QWeakPointer< QWidget >( combo );
+        m_match = QPointer< QWidget >( match );
+        m_input = QPointer< QWidget >( combo );
     } else if( selectedType() == "Mood" || selectedType() == "Style" ) {
         if( selectedType() == "Mood" )
             m_currentType = Echonest::DynamicPlaylist::Mood;
@@ -435,13 +437,13 @@ Tomahawk::EchonestControl::updateWidgets()
 
         match->hide();
         combo->hide();
-        m_match = QWeakPointer< QWidget >( match );
-        m_input = QWeakPointer< QWidget >( combo );
+        m_match = QPointer< QWidget >( match );
+        m_input = QPointer< QWidget >( combo );
 
         insertMoodsAndStyles();
     } else {
-        m_match = QWeakPointer<QWidget>( new QWidget );
-        m_input = QWeakPointer<QWidget>( new QWidget );
+        m_match = QPointer<QWidget>( new QWidget );
+        m_input = QPointer<QWidget>( new QWidget );
     }
     updateData();
     calculateSummary();
@@ -470,8 +472,8 @@ Tomahawk::EchonestControl::setupMinMaxWidgets( Echonest::DynamicPlaylist::Playli
 
     match->hide();
     input->hide();
-    m_match = QWeakPointer< QWidget >( match );
-    m_input = QWeakPointer< QWidget >( input );
+    m_match = QPointer< QWidget >( match );
+    m_input = QPointer< QWidget >( input );
 }
 
 
@@ -738,15 +740,20 @@ Tomahawk::EchonestControl::calculateSummary()
 {
     // turns the current control into an english phrase suitable for embedding into a sentence summary
     QString summary;
-    if( selectedType() == "Artist" ) {
+    if ( selectedType() == "Artist" )
+    {
         // magic char is used by EchonestGenerator to split the prefix from the artist name
-        if( static_cast< Echonest::DynamicPlaylist::ArtistTypeEnum >( m_matchData.toInt() ) == Echonest::DynamicPlaylist::ArtistType )
+        if ( static_cast< Echonest::DynamicPlaylist::ArtistTypeEnum >( m_matchData.toInt() ) == Echonest::DynamicPlaylist::ArtistType )
             summary = tr( "only by ~%1" ).arg( m_data.second.toString() );
-        else if( static_cast< Echonest::DynamicPlaylist::ArtistTypeEnum >( m_matchData.toInt() ) == Echonest::DynamicPlaylist::ArtistRadioType )
+        else if ( static_cast< Echonest::DynamicPlaylist::ArtistTypeEnum >( m_matchData.toInt() ) == Echonest::DynamicPlaylist::ArtistRadioType )
             summary = tr( "similar to ~%1" ).arg( m_data.second.toString() );
-    } else if( selectedType() == "Artist Description" ) {
+    }
+    else if( selectedType() == "Artist Description" )
+    {
         summary = tr( "with genre ~%1" ).arg( m_data.second.toString() );
-    } else if( selectedType() == "User Radio" ) {
+    }
+    else if( selectedType() == "User Radio" )
+    {
         QComboBox* b = qobject_cast< QComboBox* >( m_input.data() );
         if ( b )
         {
@@ -756,52 +763,70 @@ Tomahawk::EchonestControl::calculateSummary()
             {
                 QString subSum;
                 if ( b->currentText() == tr( "My Collection" ) )
-                    subSum = "my";
+                    summary = tr( "from my radio" );
                 else
-                    subSum = b->currentText();
-                summary = tr( "from %1 radio" ).arg( subSum );
+                    summary = tr( "from %1 radio" ).arg( b->currentText() );
             }
         }
         else
             summary = tr( "from no one" );
-    } else if( selectedType() == "Artist Description" || selectedType() == "Song" ) {
-        summary = QString( "similar to ~%1" ).arg( m_data.second.toString() );
-    } else if( selectedType() == "Variety" || selectedType() == "Danceability" || selectedType() == "Artist Hotttnesss" ||
-               selectedType() == "Energy" || selectedType() == "Artist Familiarity" || selectedType() == "Song Hotttnesss" ||
-               selectedType() == "Adventurousness" ) {
+    }
+    else if ( selectedType() == "Artist Description" || selectedType() == "Song" )
+    {
+        summary = tr( "similar to ~%1" ).arg( m_data.second.toString() );
+    }
+    else if ( selectedType() == QT_TR_NOOP( "Variety" ) || selectedType() == QT_TR_NOOP( "Danceability" ) ||
+              selectedType() == QT_TR_NOOP( "Artist Hotttnesss" ) || selectedType() == QT_TR_NOOP( "Energy" ) ||
+              selectedType() == QT_TR_NOOP( "Artist Familiarity" ) || selectedType() == QT_TR_NOOP( "Song Hotttnesss" ) ||
+              selectedType() == QT_TR_NOOP( "Adventurousness" ) )
+    {
         QString modifier;
         qreal sliderVal = m_data.second.toReal();
         // divide into avpproximate chunks
         if( 0.0 <= sliderVal && sliderVal < 0.2 )
-            modifier = "very low";
+            modifier = tr( "very low" );
         else if( 0.2 <= sliderVal && sliderVal < 0.4 )
-            modifier = "low";
+            modifier = tr( "low" );
         else if( 0.4 <= sliderVal && sliderVal < 0.6 )
-            modifier = "moderate";
+            modifier = tr( "moderate" );
         else if( 0.6 <= sliderVal && sliderVal < 0.8 )
-            modifier = "high";
+            modifier = tr( "high" );
         else if( 0.8 <= sliderVal && sliderVal <= 1 )
-            modifier = "very high";
-        summary = tr( "with %1 %2" ).arg( modifier ).arg( selectedType().toLower() );
-    } else if( selectedType() == "Tempo" ) {
+            modifier = tr( "very high" );
+        summary = tr( "with %1 %2" ).arg( modifier ).arg( tr( selectedType().toStdString().c_str() ) );
+    }
+    else if ( selectedType() == "Tempo" )
+    {
         summary = tr( "about %1 BPM" ).arg( m_data.second.toString() );
-    } else if( selectedType() == "Duration" ) {
+    }
+    else if ( selectedType() == "Duration" )
+    {
         summary = tr( "about %n minute(s) long", "", m_data.second.toInt() / 60 );
-    } else if( selectedType() == "Loudness" ) {
+    }
+    else if ( selectedType() == "Loudness" )
+    {
         summary = tr( "about %1 dB" ).arg( m_data.second.toString() );
-    } else if( selectedType() == "Latitude" || selectedType() == "Longitude"  ) {
-        summary = tr( "at around %1%2 %3" ).arg( m_data.second.toString() ).arg( QString( QChar( 0x00B0 ) ) ).arg( selectedType().toLower() );
-    } else if( selectedType() == "Key" ) {
+    }
+    else if ( selectedType() == "Latitude" || selectedType() == "Longitude" )
+    {
+        summary = tr( "at around %1%2 %3" ).arg( m_data.second.toString() ).arg( QString( QChar( 0x00B0 ) ) ).arg( tr( selectedType().toStdString().c_str() ) );
+    }
+    else if ( selectedType() == "Key" )
+    {
         Q_ASSERT( !m_input.isNull() );
         Q_ASSERT( qobject_cast< QComboBox* >( m_input.data() ) );
         QString keyName = qobject_cast< QComboBox* >( m_input.data() )->currentText().toLower();
         summary = tr( "in %1" ).arg( keyName );
-    } else if( selectedType() == "Mode" ) {
+    }
+    else if ( selectedType() == "Mode" )
+    {
         Q_ASSERT( !m_input.isNull() );
         Q_ASSERT( qobject_cast< QComboBox* >( m_input.data() ) );
         QString modeName = qobject_cast< QComboBox* >( m_input.data() )->currentText().toLower();
         summary = tr( "in a %1 key" ).arg( modeName );
-    } else if( selectedType() == "Sorting" ) {
+    }
+    else if ( selectedType() == "Sorting" )
+    {
         Q_ASSERT( !m_input.isNull() );
         Q_ASSERT( qobject_cast< QComboBox* >( m_input.data() ) );
         QString sortType = qobject_cast< QComboBox* >( m_input.data() )->currentText().toLower();
@@ -811,17 +836,22 @@ Tomahawk::EchonestControl::calculateSummary()
         QString ascdesc = qobject_cast< QComboBox* >( m_match.data() )->currentText().toLower();
 
         summary = tr( "sorted in %1 %2 order" ).arg( ascdesc ).arg( sortType );
-    } else if( selectedType() == "Mood" ) {
+    }
+    else if ( selectedType() == "Mood" )
+    {
         Q_ASSERT( !m_input.isNull() );
         Q_ASSERT( qobject_cast< QComboBox* >( m_input.data() ) );
         QString text = qobject_cast< QComboBox* >( m_input.data() )->currentText().toLower();
         summary = tr( "with a %1 mood" ).arg( text );
-    } else if( selectedType() == "Style"  ) {
+    }
+    else if ( selectedType() == "Style" )
+    {
         Q_ASSERT( !m_input.isNull() );
         Q_ASSERT( qobject_cast< QComboBox* >( m_input.data() ) );
         QString text = qobject_cast< QComboBox* >( m_input.data() )->currentText().toLower();
         summary = tr( "in a %1 style" ).arg( text );
     }
+
     m_summary = summary;
 }
 

@@ -38,7 +38,8 @@ class DLLEXPORT PlayableModel : public QAbstractItemModel
 Q_OBJECT
 
 public:
-    enum Columns {
+    enum Columns
+    {
         Artist = 0,
         Track = 1,
         Composer = 2,
@@ -57,6 +58,8 @@ public:
     explicit PlayableModel( QObject* parent = 0, bool loading = true );
     virtual ~PlayableModel();
 
+    virtual QString guid() const { return QString(); }
+
     virtual QModelIndex index( int row, int column, const QModelIndex& parent ) const;
     virtual QModelIndex parent( const QModelIndex& child ) const;
 
@@ -65,11 +68,11 @@ public:
     virtual bool isLoading() const { return m_loading; }
 
     virtual QString title() const { return m_title; }
-    virtual void setTitle( const QString& title ) { m_title = title; }
+    virtual void setTitle( const QString& title );
     virtual QString description() const { return m_description; }
-    virtual void setDescription( const QString& description ) { m_description = description; }
+    virtual void setDescription( const QString& description );
     virtual QPixmap icon() const { return m_icon; }
-    virtual void setIcon( const QPixmap& pixmap ) { m_icon = pixmap; }
+    virtual void setIcon( const QPixmap& pixmap );
 
     virtual int trackCount() const { return rowCount( QModelIndex() ); }
     virtual int itemCount() const { return rowCount( QModelIndex() ); }
@@ -98,7 +101,10 @@ public:
 
     virtual void ensureResolved();
 
-    PlayableItem* itemFromIndex( const QModelIndex& index ) const;
+    virtual PlayableItem* itemFromIndex( const QModelIndex& index ) const;
+    virtual PlayableItem* itemFromQuery( const Tomahawk::query_ptr& query ) const;
+    virtual PlayableItem* itemFromResult( const Tomahawk::result_ptr& result ) const;
+
     /// Returns a flat list of all tracks in this model
     QList< Tomahawk::query_ptr > queries() const;
 
@@ -109,14 +115,19 @@ signals:
     void repeatModeChanged( Tomahawk::PlaylistModes::RepeatMode mode );
     void shuffleModeChanged( bool enabled );
 
-    void trackCountChanged( unsigned int tracks );
     void itemCountChanged( unsigned int items );
 
     void loadingStarted();
     void loadingFinished();
 
+    void indexResolved( const QModelIndex& index );
+    void indexPlayable( const QModelIndex& index );
+
+    void changed();
+    void currentIndexChanged();
+
 public slots:
-    virtual void setCurrentItem( const QModelIndex& index );
+    virtual void setCurrentIndex( const QModelIndex& index );
 
     virtual void clear();
 
@@ -144,10 +155,14 @@ public slots:
 
 protected:
     PlayableItem* rootItem() const { return m_rootItem; }
+    QModelIndex createIndex( int row, int column, PlayableItem* item = 0 ) const;
 
 private slots:
     void onDataChanged();
 
+    void onQueryBecamePlayable( bool playable );
+    void onQueryResolved( bool hasResults );
+    
     void onPlaybackStarted( const Tomahawk::result_ptr& result );
     void onPlaybackStopped();
 

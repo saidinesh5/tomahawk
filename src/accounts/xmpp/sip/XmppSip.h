@@ -30,6 +30,10 @@
     #include "XmlConsole.h"
 #endif
 
+#include "accounts/AccountDllMacro.h"
+
+#include "../XmppInfoPlugin.h"
+
 #include <jreen/client.h>
 #include <jreen/disco.h>
 #include <jreen/message.h>
@@ -45,12 +49,9 @@
 #include <jreen/pubsubmanager.h>
 
 #ifndef ENABLE_HEADLESS
-    #include <QtGui/QMessageBox>
+    #include <QMessageBox>
 #endif
 
-#include "accounts/AccountDllMacro.h"
-
-#include "../XmppInfoPlugin.h"
 
 class ACCOUNTDLLEXPORT XmppSipPlugin : public SipPlugin
 {
@@ -64,6 +65,7 @@ public:
 
     //FIXME: Make this more correct
     virtual bool isValid() const { return true; }
+    virtual QString inviteString() const;
 
     Tomahawk::InfoSystem::InfoPluginPtr infoPlugin();
 
@@ -89,7 +91,6 @@ public slots:
     virtual void sendMsg( const QString& peerId, const SipInfo& info );
     virtual void addContact( const QString& peerId, const QString& msg = QString() );
 
-    void broadcastMsg( const QString& msg );
     void showAddFriendDialog();
     void publishTune( const QUrl& url, const Tomahawk::InfoSystem::InfoStringHash& trackInfo );
 
@@ -131,7 +132,7 @@ private:
     int m_currentPort;
     QString m_currentResource;
 
-    QWeakPointer< Tomahawk::InfoSystem::XmppInfoPlugin > m_infoPlugin;
+    QPointer< Tomahawk::InfoSystem::XmppInfoPlugin > m_infoPlugin;
     Tomahawk::Accounts::Account::ConnectionState m_state;
 
     // sort out

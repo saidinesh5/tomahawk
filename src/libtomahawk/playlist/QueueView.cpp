@@ -41,12 +41,13 @@ QueueView::QueueView( AnimatedSplitter* parent )
     TomahawkUtils::unmarginLayout( layout() );
     setContentsMargins( 0, 0, 0, 0 );
 
-    setHiddenSize( QSize( 0, 22 ) );
+    setHiddenSize( QSize( 0, TomahawkUtils::defaultFontHeight() * 1.4 ) );
 
     ui->queue->setProxyModel( new QueueProxyModel( ui->queue ) );
     ui->queue->setSizePolicy( QSizePolicy::Preferred, QSizePolicy::Ignored );
 
     PlaylistModel* queueModel = new PlaylistModel( this );
+    queueModel->setAcceptPlayableQueriesOnly( true );
     ui->queue->proxyModel()->setStyle( PlayableProxyModel::Short );
     queueModel->finishLoading();
     ui->queue->setPlaylistModel( queueModel );
@@ -55,7 +56,7 @@ QueueView::QueueView( AnimatedSplitter* parent )
 //    ui->queue->setEmptyTip( tr( "The queue is currently empty. Drop something to enqueue it!" ) );
     ui->queue->setEmptyTip( QString() );
 
-    connect( queueModel, SIGNAL( trackCountChanged( unsigned int ) ), SLOT( updateLabel() ) );
+    connect( queueModel, SIGNAL( itemCountChanged( unsigned int ) ), SLOT( updateLabel() ) );
     connect( ui->toggleButton, SIGNAL( clicked() ), SLOT( show() ) );
     connect( this, SIGNAL( animationFinished() ), SLOT( onAnimationFinished() ) );
 

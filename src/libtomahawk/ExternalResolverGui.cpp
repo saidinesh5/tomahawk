@@ -19,16 +19,15 @@
 #include "ExternalResolverGui.h"
 
 
+#include "Source.h"
+#include "utils/Logger.h"
+
 #include <QMetaProperty>
 #include <QBuffer>
 #include <QDir>
-
-#include <QtGui/QIcon>
-#include <QtGui/QWidget>
+#include <QIcon>
+#include <QWidget>
 #include <QUiLoader>
-#include "utils/Logger.h"
-
-#include "Source.h"
 
 Tomahawk::ExternalResolverGui::ExternalResolverGui(const QString& filePath)
     : Tomahawk::ExternalResolver(filePath)
@@ -90,6 +89,11 @@ Tomahawk::ExternalResolverGui::widgetFromData( QByteArray& data, QWidget* parent
     QUiLoader l;
     QBuffer b( &data );
     QWidget* w = l.load( &b, parent );
+#ifdef Q_OS_MAC
+    w->setContentsMargins( 12, 12, 12, 12 );
+#else
+    w->setContentsMargins( 6, 6, 6, 6 );
+#endif
 
     return w;
 }

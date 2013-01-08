@@ -21,12 +21,11 @@
 #include "WelcomeWidget.h"
 #include "ui_WelcomeWidget.h"
 
-#include <QtGui/QPainter>
-
 #include "ViewManager.h"
 #include "SourceList.h"
 #include "TomahawkSettings.h"
 #include "RecentPlaylistsModel.h"
+#include "MetaPlaylistInterface.h"
 
 #include "audio/AudioEngine.h"
 #include "playlist/AlbumModel.h"
@@ -35,60 +34,15 @@
 #include "utils/AnimatedSpinner.h"
 #include "utils/TomahawkUtils.h"
 #include "utils/Logger.h"
-#include "dynamic/GeneratorInterface.h"
+#include "playlist/dynamic/GeneratorInterface.h"
 #include "RecentlyPlayedPlaylistsModel.h"
+
+#include <QPainter>
+
 
 #define HISTORY_PLAYLIST_ITEMS 10
 
 using namespace Tomahawk;
-
-
-class WelcomeWidgetInterface : public Tomahawk::PlaylistInterface
-{
-    Q_OBJECT
-public:
-    explicit WelcomeWidgetInterface( WelcomeWidget* w )
-        : PlaylistInterface()
-        , m_w( w )
-    {
-        connect( m_w->ui->tracksView->proxyModel()->playlistInterface().data(), SIGNAL( repeatModeChanged( Tomahawk::PlaylistModes::RepeatMode ) ),
-                 SIGNAL( repeatModeChanged( Tomahawk::PlaylistModes::RepeatMode ) ) );
-
-        connect( m_w->ui->tracksView->proxyModel()->playlistInterface().data(), SIGNAL( shuffleModeChanged( bool ) ),
-                 SIGNAL( shuffleModeChanged( bool ) ) );
-    }
-    virtual ~WelcomeWidgetInterface() {}
-
-
-    virtual Tomahawk::PlaylistModes::RepeatMode repeatMode() const { return m_w->ui->tracksView->proxyModel()->playlistInterface()->repeatMode(); }
-    virtual bool shuffled() const { return m_w->ui->tracksView->proxyModel()->playlistInterface()->shuffled(); }
-
-    virtual Tomahawk::result_ptr currentItem() const { return m_w->ui->tracksView->proxyModel()->playlistInterface()->currentItem(); }
-    virtual Tomahawk::result_ptr siblingItem( int itemsAway ) { return m_w->ui->tracksView->proxyModel()->playlistInterface()->siblingItem( itemsAway ); }
-    virtual int trackCount() const { return m_w->ui->tracksView->proxyModel()->playlistInterface()->trackCount(); }
-    virtual QList< Tomahawk::query_ptr > tracks() { return m_w->ui->tracksView->proxyModel()->playlistInterface()->tracks(); }
-
-    virtual bool hasChildInterface( Tomahawk::playlistinterface_ptr other )
-    {
-        return m_w->ui->tracksView->proxyModel()->playlistInterface() == other ||
-               m_w->ui->tracksView->proxyModel()->playlistInterface()->hasChildInterface( other ) ||
-               m_w->ui->additionsView->playlistInterface()->hasChildInterface( other );
-    }
-
-    virtual void setRepeatMode( Tomahawk::PlaylistModes::RepeatMode mode )
-    {
-        m_w->ui->tracksView->proxyModel()->playlistInterface()->setRepeatMode( mode );
-    }
-
-    virtual void setShuffled( bool enabled )
-    {
-        m_w->ui->tracksView->proxyModel()->playlistInterface()->setShuffled( enabled );
-    }
-
-private:
-    WelcomeWidget* m_w;
-
-};
 
 
 WelcomeWidget::WelcomeWidget( QWidget* parent )
@@ -96,8 +50,11 @@ WelcomeWidget::WelcomeWidget( QWidget* parent )
     , ui( new Ui::WelcomeWidget )
 {
     ui->setupUi( this );
+
     ui->splitter_2->setStretchFactor( 0, 3 );
     ui->splitter_2->setStretchFactor( 1, 1 );
+    ui->splitter->setChildrenCollapsible( false );
+    ui->splitter_2->setChildrenCollapsible( false );
 
     RecentPlaylistsModel* model = new RecentPlaylistsModel( HISTORY_PLAYLIST_ITEMS, this );
 
@@ -122,11 +79,19 @@ WelcomeWidget::WelcomeWidget( QWidget* parent )
     ui->tracksView->setPlaylistModel( m_tracksModel );
     m_tracksModel->setSource( source_ptr() );
 
+    QFont f;
+    f.setBold( true );
+    QFontMetrics fm( f );
+    ui->tracksView->setMinimumWidth( fm.width( tr( "Recently played tracks" ) ) * 2 );
+
     m_recentAlbumsModel = new AlbumModel( ui->additionsView );
     ui->additionsView->setPlayableModel( m_recentAlbumsModel );
     ui->additionsView->proxyModel()->sort( -1 );
 
-    m_playlistInterface = playlistinterface_ptr( new WelcomeWidgetInterface( this ) );
+    MetaPlaylistInterface* mpl = new MetaPlaylistInterface();
+    mpl->addChildInterface( ui->tracksView->playlistInterface() );
+    mpl->addChildInterface( ui->additionsView->playlistInterface() );
+    m_playlistInterface = playlistinterface_ptr( mpl );
 
     connect( SourceList::instance(), SIGNAL( ready() ), SLOT( onSourcesReady() ) );
     connect( SourceList::instance(), SIGNAL( sourceAdded( Tomahawk::source_ptr ) ), SLOT( onSourceAdded( Tomahawk::source_ptr ) ) );
@@ -246,7 +211,18 @@ PlaylistDelegate::sizeHint( const QStyleOptionViewItem& option, const QModelInde
 {
     Q_UNUSED( option );
     Q_UNUSED( index );
-    return QSize( 0, 64 );
+
+    // Calculates the size for the bold line + 3 normal lines + margins
+    int height = 2 * 6; // margins
+    QFont font = option.font;
+    QFontMetrics fm1( font );
+    font.setPointSize( TomahawkUtils::defaultFontSize() - 1 );
+    height += fm1.height() * 3;
+    font.setPointSize( TomahawkUtils::defaultFontSize() );
+    QFontMetrics fm2( font );
+    height += fm2.height();
+
+    return QSize( 0, height );
 }
 
 
@@ -269,26 +245,26 @@ PlaylistDelegate::paint( QPainter* painter, const QStyleOptionViewItem& option, 
     QTextOption to;
     to.setAlignment( Qt::AlignCenter );
     QFont font = opt.font;
-    font.setPixelSize( 10 );
+    font.setPointSize( TomahawkUtils::defaultFontSize() - 1 );
 
     QFont boldFont = font;
     boldFont.setBold( true );
-    boldFont.setPixelSize( 11 );
+    boldFont.setPointSize( TomahawkUtils::defaultFontSize() );
+    QFontMetrics boldFontMetrics( boldFont );
 
     QFont figFont = boldFont;
-    figFont.setPixelSize( 10 );
+    figFont.setPointSize( TomahawkUtils::defaultFontSize() - 1 );
 
     QPixmap icon;
+    QRect pixmapRect = option.rect.adjusted( 10, 14, -option.rect.width() + option.rect.height() - 18, -14 );
     RecentlyPlayedPlaylistsModel::PlaylistTypes type = (RecentlyPlayedPlaylistsModel::PlaylistTypes)index.data( RecentlyPlayedPlaylistsModel::PlaylistTypeRole ).toInt();
-    if( type == RecentlyPlayedPlaylistsModel::StaticPlaylist )
-        icon = m_playlistIcon;
-    else if( type == RecentlyPlayedPlaylistsModel::AutoPlaylist )
-        icon = m_autoIcon;
-    else if( type == RecentlyPlayedPlaylistsModel::Station )
-        icon = m_stationIcon;
 
-    QRect pixmapRect = option.rect.adjusted( 10, 13, -option.rect.width() + 48, -13 );
-    icon = icon.scaled( pixmapRect.size(), Qt::KeepAspectRatio, Qt::SmoothTransformation );
+    if ( type == RecentlyPlayedPlaylistsModel::StaticPlaylist )
+        icon = TomahawkUtils::defaultPixmap( TomahawkUtils::Playlist, TomahawkUtils::Original, pixmapRect.size() );
+    else if ( type == RecentlyPlayedPlaylistsModel::AutoPlaylist )
+        icon = TomahawkUtils::defaultPixmap( TomahawkUtils::AutomaticPlaylist, TomahawkUtils::Original, pixmapRect.size() );
+    else if ( type == RecentlyPlayedPlaylistsModel::Station )
+        icon = TomahawkUtils::defaultPixmap( TomahawkUtils::Station, TomahawkUtils::Original, pixmapRect.size() );
 
     painter->drawPixmap( pixmapRect, icon );
 
@@ -301,12 +277,12 @@ PlaylistDelegate::paint( QPainter* painter, const QStyleOptionViewItem& option, 
 //         int bottomEdge = pixmapRect
         // right edge 10px past right edge of pixmapRect
         // bottom edge flush with bottom of pixmap
-        QRect rect( pixmapRect.right() - width , 0, width - 8, 0 );
+        QRect rect( pixmapRect.right() - width, 0, width - 8, 0 );
         rect.adjust( -2, 0, 0, 0 );
         rect.setTop( pixmapRect.bottom() - painter->fontMetrics().height() - 1 );
         rect.setBottom( pixmapRect.bottom() + 1 );
 
-        QColor figColor( "#464b55" );
+        QColor figColor( "#454e59" );
         painter->setPen( figColor );
         painter->setBrush( figColor );
 
@@ -314,10 +290,10 @@ PlaylistDelegate::paint( QPainter* painter, const QStyleOptionViewItem& option, 
         painter->restore();
     }
 
-    QPixmap avatar = index.data( RecentlyPlayedPlaylistsModel::PlaylistRole ).value< Tomahawk::playlist_ptr >()->author()->avatar( Source::FancyStyle );
+    QRect r( option.rect.width() - option.fontMetrics.height() * 2.5 - 10, option.rect.top() + option.rect.height() / 3 - option.fontMetrics.height(), option.fontMetrics.height() * 2.5, option.fontMetrics.height() * 2.5 );
+    QPixmap avatar = index.data( RecentlyPlayedPlaylistsModel::PlaylistRole ).value< Tomahawk::playlist_ptr >()->author()->avatar( TomahawkUtils::RoundedCorners, r.size() );
     if ( avatar.isNull() )
-        avatar = m_defaultAvatar;
-    QRect r( option.rect.width() - avatar.width() - 10, option.rect.top() + option.rect.height()/2 - avatar.height()/2, avatar.width(), avatar.height() );
+        avatar = TomahawkUtils::defaultPixmap( TomahawkUtils::DefaultSourceAvatar, TomahawkUtils::RoundedCorners, r.size() );
     painter->drawPixmap( r, avatar );
 
     painter->setFont( font );
@@ -346,7 +322,7 @@ PlaylistDelegate::paint( QPainter* painter, const QStyleOptionViewItem& option, 
         painter->setPen( QColor( Qt::gray ).darker() );
     }
 
-    QRect rectText = option.rect.adjusted( 66, 20, -leftEdge - 10, -8 );
+    QRect rectText = option.rect.adjusted( option.fontMetrics.height() * 4.5, boldFontMetrics.height() + 6, -leftEdge - 10, -8 );
 #ifdef Q_WS_MAC
     rectText.adjust( 0, 1, 0, 0 );
 #elif defined Q_WS_WIN
@@ -358,7 +334,7 @@ PlaylistDelegate::paint( QPainter* painter, const QStyleOptionViewItem& option, 
     painter->setFont( font );
 
     painter->setFont( boldFont );
-    painter->drawText( option.rect.adjusted( 56, 6, -100, -option.rect.height() + 20 ), index.data().toString() );
+    painter->drawText( option.rect.adjusted( option.fontMetrics.height() * 4, 6, -100, -option.rect.height() + boldFontMetrics.height() + 6 ), index.data().toString() );
 
     painter->restore();
 }
@@ -368,7 +344,7 @@ PlaylistWidget::PlaylistWidget( QWidget* parent )
     : QListView( parent )
 {
     m_overlay = new OverlayWidget( this );
-    LoadingSpinner* spinner = new LoadingSpinner( this );
+    /* LoadingSpinner* spinner = */ new LoadingSpinner( this );
 }
 
 

@@ -21,17 +21,17 @@
 
 #define ZCONF_PORT 50210
 
+#include "database/Database.h"
+#include "database/DatabaseImpl.h"
+#include "network/Servent.h"
+#include "accounts/AccountDllMacro.h"
+
 #include <QList>
 #include <QHostAddress>
 #include <QHostInfo>
 #include <QNetworkProxy>
 #include <QUdpSocket>
 #include <QTimer>
-
-#include "database/Database.h"
-#include "database/DatabaseImpl.h"
-#include "network/Servent.h"
-#include "accounts/AccountDllMacro.h"
 
 class Node : public QObject
 {
@@ -101,18 +101,17 @@ public slots:
         qDebug() << "Advertising us on the LAN (both versions)";
         // Keep newer versions first
         QByteArray advert = QString( "TOMAHAWKADVERT:%1:%2:%3" )
-                            .arg( m_port )
-                            .arg( Database::instance()->impl()->dbid() )
-                            .arg( QHostInfo::localHostName() )
-                            .toAscii();
-        m_sock.writeDatagram( advert.data(), advert.size(),
-                              QHostAddress::Broadcast, ZCONF_PORT );
+                               .arg( m_port )
+                               .arg( Database::instance()->impl()->dbid() )
+                               .arg( QHostInfo::localHostName() )
+                               .toLatin1();
+        m_sock.writeDatagram( advert.data(), advert.size(), QHostAddress::Broadcast, ZCONF_PORT );
+
         advert = QString( "TOMAHAWKADVERT:%1:%2" )
-                            .arg( m_port )
-                            .arg( Database::instance()->impl()->dbid() )
-                            .toAscii();
-        m_sock.writeDatagram( advert.data(), advert.size(),
-                              QHostAddress::Broadcast, ZCONF_PORT );
+                    .arg( m_port )
+                    .arg( Database::instance()->impl()->dbid() )
+                    .toLatin1();
+        m_sock.writeDatagram( advert.data(), advert.size(), QHostAddress::Broadcast, ZCONF_PORT );
     }
 
 signals:
@@ -130,13 +129,13 @@ private slots:
         QHostAddress sender;
         quint16 senderPort;
         m_sock.readDatagram( datagram.data(), datagram.size(), &sender, &senderPort );
-        qDebug() << "DATAGRAM RCVD" << QString::fromAscii( datagram ) << sender;
+        qDebug() << "DATAGRAM RCVD" << QString::fromLatin1( datagram ) << sender;
 
         // only process msgs originating on the LAN:
         if ( datagram.startsWith( "TOMAHAWKADVERT:" ) &&
             Servent::isIPWhitelisted( sender ) )
         {
-            QStringList parts = QString::fromAscii( datagram ).split( ':' );
+            QStringList parts = QString::fromLatin1( datagram ).split( ':' );
             if ( parts.length() == 4 )
             {
                 bool ok;

@@ -20,14 +20,18 @@
 #ifndef RESULT_H
 #define RESULT_H
 
-#include <QtCore/QObject>
-#include <QtCore/QSharedPointer>
-#include <QtCore/QVariant>
+#include <QObject>
+#include <QPixmap>
+#include <QPointer>
+#include <QVariant>
+#include <QMutex>
 
+#include "utils/TomahawkUtils.h"
 #include "Typedefs.h"
 
 #include "DllMacro.h"
 
+class MetadataEditor;
 class DatabaseCommand_Resolve;
 class DatabaseCommand_AllTracks;
 class DatabaseCommand_AddFiles;
@@ -42,6 +46,7 @@ class DLLEXPORT Result : public QObject
 {
 Q_OBJECT
 
+friend class ::MetadataEditor;
 friend class ::DatabaseCommand_Resolve;
 friend class ::DatabaseCommand_AllTracks;
 friend class ::DatabaseCommand_AddFiles;
@@ -71,6 +76,10 @@ public:
     QString url() const { return m_url; }
     QString mimetype() const { return m_mimetype; }
     QString friendlySource() const;
+    QString purchaseUrl() const { return m_purchaseUrl; }
+    QString linkUrl() const { return m_linkUrl; }
+
+    QPixmap sourceIcon( TomahawkUtils::ImageMode style, const QSize& desiredSize = QSize() ) const;
 
     unsigned int duration() const { return m_duration; }
     unsigned int bitrate() const { return m_bitrate; }
@@ -86,6 +95,8 @@ public:
     void setRID( RID id ) { m_rid = id; }
     void setCollection( const Tomahawk::collection_ptr& collection );
     void setFriendlySource( const QString& s ) { m_friendlySource = s; }
+    void setPurchaseUrl( const QString& u ) { m_purchaseUrl = u; }
+    void setLinkUrl( const QString& u ) { m_linkUrl = u; }
     void setArtist( const Tomahawk::artist_ptr& artist );
     void setAlbum( const Tomahawk::album_ptr& album );
     void setComposer( const Tomahawk::artist_ptr& composer );
@@ -111,12 +122,14 @@ public slots:
 signals:
     // emitted when the collection this result comes from is going offline/online:
     void statusChanged();
+    void updated();
 
 private slots:
     void onOffline();
     void onOnline();
-    
+
     void onResolverRemoved( Tomahawk::Resolver* resolver );
+    void doneEditing();
 
 private:
     // private constructor
@@ -128,13 +141,15 @@ private:
     mutable RID m_rid;
     collection_ptr m_collection;
     Tomahawk::query_ptr m_query;
-    QWeakPointer< Tomahawk::Resolver > m_resolvedBy;
+    QPointer< Tomahawk::Resolver > m_resolvedBy;
 
     Tomahawk::artist_ptr m_artist;
     Tomahawk::album_ptr m_album;
     Tomahawk::artist_ptr m_composer;
     QString m_track;
     QString m_url;
+    QString m_purchaseUrl;
+    QString m_linkUrl;
     QString m_mimetype;
     QString m_friendlySource;
 

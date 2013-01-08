@@ -31,7 +31,7 @@
     #include <QPixmap>
 #endif
 
-class QNetworkReply;
+class NetworkReply;
 
 namespace Tomahawk
 {
@@ -66,11 +66,10 @@ private:
 
 #ifndef ENABLE_HEADLESS
     static QPixmap pixmap();
-    static QPixmap* s_pixmap;
 #endif
 
     QStringList m_links;
-    QSet< QNetworkReply* > m_queries;
+    QSet< NetworkReply* > m_queries;
     DropJobNotifier* m_expandJob;
 };
 

@@ -20,12 +20,7 @@
  */
 
 #include "NewReleasesWidget.h"
-#include "WhatsHotWidget_p.h"
 #include "ui_NewReleasesWidget.h"
-
-#include <QPainter>
-#include <QStandardItemModel>
-#include <QStandardItem>
 
 #include "ViewManager.h"
 #include "SourceList.h"
@@ -34,13 +29,18 @@
 #include "ChartDataLoader.h"
 
 #include "audio/AudioEngine.h"
-#include "dynamic/GeneratorInterface.h"
+#include "playlist/dynamic/GeneratorInterface.h"
 #include "playlist/PlaylistModel.h"
 #include "playlist/TreeProxyModel.h"
 #include "playlist/PlaylistChartItemDelegate.h"
 #include "utils/TomahawkUtilsGui.h"
 #include "utils/Logger.h"
 #include "Pipeline.h"
+
+#include <QPainter>
+#include <QStandardItemModel>
+#include <QStandardItem>
+
 
 #define HISTORY_TRACK_ITEMS 25
 #define HISTORY_PLAYLIST_ITEMS 10
@@ -68,7 +68,7 @@ NewReleasesWidget::NewReleasesWidget( QWidget* parent )
     m_sortedProxy->setDynamicSortFilter( true );
     m_sortedProxy->setFilterCaseSensitivity( Qt::CaseInsensitive );
 
-    ui->breadCrumbLeft->setRootIcon( QPixmap( RESPATH "images/new-releases.png" ) );
+    ui->breadCrumbLeft->setRootIcon( TomahawkUtils::defaultPixmap( TomahawkUtils::NewReleases, TomahawkUtils::Original ) );
 
     connect( ui->breadCrumbLeft, SIGNAL( activateIndex( QModelIndex ) ), SLOT( leftCrumbIndexChanged(QModelIndex) ) );
 
@@ -130,7 +130,7 @@ NewReleasesWidget::fetchData()
     requestData.allSources = true;
     Tomahawk::InfoSystem::InfoSystem::instance()->getInfo( requestData );
 
-    tDebug( LOGVERBOSE ) << "NewReleases: requested InfoNewReleaseCapabilities";
+    tDebug( LOGVERBOSE ) << Q_FUNC_INFO << "Requested InfoNewReleaseCapabilities";
 }
 
 
@@ -142,7 +142,7 @@ NewReleasesWidget::infoSystemInfo( Tomahawk::InfoSystem::InfoRequestData request
 
     if ( !output.canConvert< QVariantMap >() )
     {
-        tDebug( LOGVERBOSE ) << Q_FUNC_INFO << "NewReleases: Could not parse output";
+        tDebug( LOGVERBOSE ) << Q_FUNC_INFO << "Could not parse output";
         return;
     }
 
@@ -151,14 +151,14 @@ NewReleasesWidget::infoSystemInfo( Tomahawk::InfoSystem::InfoRequestData request
     {
         case InfoSystem::InfoNewReleaseCapabilities:
         {
-            tLog() << "NewReleases: got InfoNewReleaseCapabilities";
+            tDebug( LOGVERBOSE ) << Q_FUNC_INFO << "Got InfoNewReleaseCapabilities";
             QStandardItem *rootItem= m_crumbModelLeft->invisibleRootItem();
 
             foreach ( const QString label, returnedData.keys() )
             {
                 QStandardItem *childItem = parseNode( rootItem, label, returnedData[label] );
                 rootItem->appendRow(childItem);
-                tLog() << "NewReleases: " << label;
+                tDebug( LOGVERBOSE ) << Q_FUNC_INFO << "NewReleases:" << label;
             }
 
             m_sortedProxy->setSourceModel( m_crumbModelLeft );
@@ -174,7 +174,7 @@ NewReleasesWidget::infoSystemInfo( Tomahawk::InfoSystem::InfoRequestData request
             const QString type = returnedData["type"].toString();
             if( !returnedData.contains(type) )
                 break;
-            const QString side = requestData.customData["whatshot_side"].toString();
+
             const QString releaseId = requestData.input.value< Tomahawk::InfoSystem::InfoStringHash >().value( "nr_id" );
 
             m_queuedFetches.remove( releaseId );
@@ -240,6 +240,7 @@ NewReleasesWidget::leftCrumbIndexChanged( QModelIndex index )
 
 
     const QString nrId = item->data( Breadcrumb::ChartIdRole ).toString();
+    const qlonglong nrExpires = item->data( Breadcrumb::ChartExpireRole ).toLongLong();
 
     if ( m_albumModels.contains( nrId ) )
     {
@@ -254,6 +255,7 @@ NewReleasesWidget::leftCrumbIndexChanged( QModelIndex index )
 
     Tomahawk::InfoSystem::InfoStringHash criteria;
     criteria.insert( "nr_id", nrId );
+    criteria.insert( "nr_expires", QString::number(nrExpires) );
     /// Remember to lower the source!
     criteria.insert( "nr_source",  index.data().toString().toLower() );
 
@@ -267,7 +269,7 @@ NewReleasesWidget::leftCrumbIndexChanged( QModelIndex index )
     requestData.timeoutMillis = 20000;
     requestData.allSources = true;
 
-    qDebug() << "Making infosystem request for chart of type:" <<nrId;
+    tDebug( LOGVERBOSE ) << "Making infosystem request for chart of type:" << nrId;
     Tomahawk::InfoSystem::InfoSystem::instance()->getInfo( requestData );
 
     m_queuedFetches.insert( nrId );
@@ -306,6 +308,7 @@ NewReleasesWidget::parseNode( QStandardItem* parentItem, const QString &label, c
         {
             QStandardItem *childItem= new QStandardItem( chart[ "label" ] );
             childItem->setData( chart[ "id" ], Breadcrumb::ChartIdRole );
+            childItem->setData( chart[ "expires" ], Breadcrumb::ChartExpireRole );
             if ( chart.value( "default", "" ) == "true")
             {
                 childItem->setData( true, Breadcrumb::DefaultRole );

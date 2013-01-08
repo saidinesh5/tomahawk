@@ -54,37 +54,45 @@ DatabaseCommand_LoadPlaylistEntries::generateEntries( DatabaseImpl* dbi )
 
     if ( query_entries.next() )
     {
-        // entries should be a list of strings:
-        QVariant v = parser.parse( query_entries.value( 0 ).toByteArray(), &ok );
-        Q_ASSERT( ok && v.type() == QVariant::List ); //TODO
-        m_guids = v.toStringList();
-        QString inclause = QString( "('%1')" ).arg( m_guids.join( "', '" ) );
-
-        TomahawkSqlQuery query = dbi->newquery();
-        QString sql = QString( "SELECT guid, trackname, artistname, albumname, annotation, "
-                               "duration, addedon, addedby, result_hint "
-                               "FROM playlist_item "
-                               "WHERE guid IN %1" ).arg( inclause );
-
-        query.exec( sql );
-        while ( query.next() )
+        if ( !query_entries.value( 0 ).isNull() )
         {
-            plentry_ptr e( new PlaylistEntry );
-            e->setGuid( query.value( 0 ).toString() );
-            e->setAnnotation( query.value( 4 ).toString() );
-            e->setDuration( query.value( 5 ).toUInt() );
-            e->setLastmodified( 0 ); // TODO e->lastmodified = query.value( 6 ).toInt();
-            e->setResultHint( query.value( 8 ).toString() );
+            // entries should be a list of strings:
+            QVariant v = parser.parse( query_entries.value( 0 ).toByteArray(), &ok );
+            Q_ASSERT( ok && v.type() == QVariant::List ); //TODO
 
-            Tomahawk::query_ptr q = Tomahawk::Query::get( query.value( 2 ).toString(), query.value( 1 ).toString(), query.value( 3 ).toString() );
-            if ( q.isNull() )
-                continue;
+            m_guids = v.toStringList();
+            QString inclause = QString( "('%1')" ).arg( m_guids.join( "', '" ) );
 
-            q->setResultHint( query.value( 8 ).toString() );
-            q->setProperty( "annotation", e->annotation() );
-            e->setQuery( q );
+            TomahawkSqlQuery query = dbi->newquery();
+            QString sql = QString( "SELECT guid, trackname, artistname, albumname, annotation, "
+                                "duration, addedon, addedby, result_hint "
+                                "FROM playlist_item "
+                                "WHERE guid IN %1" ).arg( inclause );
 
-            m_entrymap.insert( e->guid(), e );
+            query.exec( sql );
+            while ( query.next() )
+            {
+                plentry_ptr e( new PlaylistEntry );
+                e->setGuid( query.value( 0 ).toString() );
+                e->setAnnotation( query.value( 4 ).toString() );
+                e->setDuration( query.value( 5 ).toUInt() );
+                e->setLastmodified( 0 ); // TODO e->lastmodified = query.value( 6 ).toInt();
+                const QString resultHint = query.value( 8 ).toString();
+                e->setResultHint( resultHint );
+
+                Tomahawk::query_ptr q = Tomahawk::Query::get( query.value( 2 ).toString(), query.value( 1 ).toString(), query.value( 3 ).toString() );
+                if ( q.isNull() )
+                    continue;
+
+                q->setResultHint( resultHint );
+                if ( resultHint.startsWith( "http" ) )
+                    q->setSaveHTTPResultHint( true );
+
+                q->setProperty( "annotation", e->annotation() );
+                e->setQuery( q );
+
+                m_entrymap.insert( e->guid(), e );
+            }
         }
 
         prevrev = query_entries.value( 4 ).toString();
@@ -112,9 +120,12 @@ DatabaseCommand_LoadPlaylistEntries::generateEntries( DatabaseImpl* dbi )
             Q_ASSERT( false );
         }
 
-        QVariant v = parser.parse( query_entries_old.value( 0 ).toByteArray(), &ok );
-        Q_ASSERT( ok && v.type() == QVariant::List ); //TODO
-        m_oldentries = v.toStringList();
+        if ( !query_entries_old.value( 0 ).isNull() )
+        {
+            QVariant v = parser.parse( query_entries_old.value( 0 ).toByteArray(), &ok );
+            Q_ASSERT( ok && v.type() == QVariant::List ); //TODO
+            m_oldentries = v.toStringList();
+        }
         m_islatest = query_entries_old.value( 1 ).toBool();
     }
 

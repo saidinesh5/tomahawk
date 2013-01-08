@@ -49,17 +49,19 @@ InfoBar::InfoBar( QWidget* parent )
     layout()->setContentsMargins( 8, 4, 8, 4 );
 
     QFont boldFont = ui->captionLabel->font();
-    boldFont.setPixelSize( 18 );
+    boldFont.setPointSize( TomahawkUtils::defaultFontSize() + 4 );
     boldFont.setBold( true );
     ui->captionLabel->setFont( boldFont );
     ui->captionLabel->setElideMode( Qt::ElideRight );
 
-    boldFont.setPixelSize( 12 );
+    QFontMetrics boldFontMetrics( boldFont );
+    boldFont.setPointSize( TomahawkUtils::defaultFontSize() + 1 );
     boldFont.setBold( false );
     ui->descriptionLabel->setFont( boldFont );
 
+    boldFontMetrics = QFontMetrics( boldFont );
     QFont regFont = ui->longDescriptionLabel->font();
-    regFont.setPixelSize( 11 );
+    regFont.setPointSize( TomahawkUtils::defaultFontSize() );
     ui->longDescriptionLabel->setFont( regFont );
 
     m_whitePal = ui->captionLabel->palette();
@@ -69,8 +71,8 @@ InfoBar::InfoBar( QWidget* parent )
     ui->descriptionLabel->setPalette( m_whitePal );
     ui->longDescriptionLabel->setPalette( m_whitePal );
 
-    ui->captionLabel->setMargin( 6 );
-    ui->descriptionLabel->setMargin( 6 );
+    ui->captionLabel->setMargin( 2 );
+    ui->descriptionLabel->setMargin( 1 );
     ui->longDescriptionLabel->setMargin( 4 );
 
     ui->captionLabel->setText( QString() );
@@ -93,12 +95,10 @@ InfoBar::InfoBar( QWidget* parent )
 
     ui->horizontalLayout->addWidget( m_searchWidget );
 
-    setAutoFillBackground( true );
+    QPalette pal = palette();
 
-    setMinimumHeight( geometry().height() );
-    setMaximumHeight( geometry().height() );
-
-    createTile();
+    setPalette( pal );
+    setFixedHeight( 80 );
 
     connect( ViewManager::instance(), SIGNAL( filterAvailable( bool ) ), SLOT( setFilterAvailable( bool ) ) );
 }
@@ -284,68 +284,28 @@ InfoBar::onFilterEdited()
 
 
 void
-InfoBar::createTile( int w )
+InfoBar::paintEvent( QPaintEvent* event )
 {
-    QImage tile = QImage( RESPATH "images/playlist-header-tiled.png" );
+    QWidget::paintEvent( event );
 
-    if ( tile.isNull() )
-        return;
+    QPainter painter( this );
+    painter.setRenderHint( QPainter::Antialiasing );
 
-    if ( tile.height() < height() )
-    {
-        // image must be at least as tall as we are
-        QImage taller( tile.width(), height(), QImage::Format_ARGB32_Premultiplied );
-        QPainter p( &taller );
-        int curY = 0;
-        while ( curY < taller.height() )
-        {
-            const int thisHeight = (curY + tile.height() > height()) ? height() - curY : tile.height();
-            p.drawImage( QRect( 0, curY, tile.width(), thisHeight ), tile, QRect( 0, 0, tile.width(), thisHeight ) );
-            curY += tile.height();
-        }
-        tile = taller;
-    }
+    QLinearGradient gradient( QPoint( 0, 0 ), QPoint( 0, 1 ) );
+    gradient.setCoordinateMode( QGradient::ObjectBoundingMode );
+    gradient.setColorAt( 0.0, QColor( "#707070" ) );
+    gradient.setColorAt( 1.0, QColor( "#25292c" ) );
 
-    m_bgTile = QPixmap( w, height() );
-    m_bgTile.fill( Qt::transparent );
-
-    int curWidth = 0;
-    QPainter p( &m_bgTile );
-    while ( curWidth < w )
-    {
-        const int thisWidth = (curWidth + tile.width() > w) ? w - curWidth : tile.width();
-
-        const QRect source( 0, 0, thisWidth, m_bgTile.height() );
-        const QRect dest( curWidth, 0, thisWidth, m_bgTile.height() );
-        p.drawImage( dest, tile, source );
-        curWidth += thisWidth;
-    }
+    painter.setBrush( gradient );
+    painter.fillRect( rect(), gradient );
 }
 
 
 void
-InfoBar::paintEvent( QPaintEvent* e )
+InfoBar::changeEvent( QEvent* event )
 {
-    Q_UNUSED( e );
-
-    if ( m_bgTile.isNull() || width() > m_bgTile.width() )
-        createTile( width() );
-
-    if ( m_bgTile.isNull() )
-        return;
-
-    QPainter p( this );
-
-    // Truncate bg pixmap and paint into bg
-    p.drawPixmap( rect(), m_bgTile, rect() );
-}
-
-
-void
-InfoBar::changeEvent( QEvent* e )
-{
-    QWidget::changeEvent( e );
-    switch ( e->type() )
+    QWidget::changeEvent( event );
+    switch ( event->type() )
     {
         case QEvent::LanguageChange:
 //            ui->retranslateUi( this );

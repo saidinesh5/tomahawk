@@ -22,7 +22,6 @@
 #include "TwitterConfigWidget.h"
 #include "accounts/twitter/TomahawkOAuthTwitter.h"
 #include "libtomahawk/infosystem/InfoSystem.h"
-
 #include "sip/SipPlugin.h"
 
 #include <QTweetLib/qtweetaccountverifycredentials.h>
@@ -55,10 +54,13 @@ TwitterAccount::TwitterAccount( const QString &accountId )
 
     qDebug() << "Got cached peers:" << configuration() << configuration()[ "cachedpeers" ];
 
-    m_configWidget = QWeakPointer< TwitterConfigWidget >( new TwitterConfigWidget( this, 0 ) );
+    m_configWidget = QPointer< TwitterConfigWidget >( new TwitterConfigWidget( this, 0 ) );
     connect( m_configWidget.data(), SIGNAL( twitterAuthed( bool ) ), SLOT( configDialogAuthedSignalSlot( bool ) ) );
 
-    m_twitterAuth = QWeakPointer< TomahawkOAuthTwitter >( new TomahawkOAuthTwitter( TomahawkUtils::nam(), this ) );
+    m_twitterAuth = QPointer< TomahawkOAuthTwitter >( new TomahawkOAuthTwitter( TomahawkUtils::nam(), this ) );
+
+    m_onlinePixmap = QPixmap( ":/twitter-icon.png" );
+    m_offlinePixmap = QPixmap( ":/twitter-offline-icon.png" );
 }
 
 
@@ -83,6 +85,9 @@ TwitterAccount::configDialogAuthedSignalSlot( bool authed )
 Account::ConnectionState
 TwitterAccount::connectionState() const
 {
+    if ( m_twitterSipPlugin.isNull() )
+        return Account::Disconnected;
+
     return m_twitterSipPlugin.data()->connectionState();
 }
 
@@ -92,7 +97,7 @@ TwitterAccount::sipPlugin()
     if ( m_twitterSipPlugin.isNull() )
     {
         qDebug() << "CHECKING:" << configuration() << configuration()[ "cachedpeers" ];
-        m_twitterSipPlugin = QWeakPointer< TwitterSipPlugin >( new TwitterSipPlugin( this ) );
+        m_twitterSipPlugin = QPointer< TwitterSipPlugin >( new TwitterSipPlugin( this ) );
 
         connect( m_twitterSipPlugin.data(), SIGNAL( stateChanged( Tomahawk::Accounts::Account::ConnectionState ) ), this, SIGNAL( connectionStateChanged( Tomahawk::Accounts::Account::ConnectionState ) ) );
         return m_twitterSipPlugin.data();
@@ -105,7 +110,7 @@ Tomahawk::InfoSystem::InfoPluginPtr
 TwitterAccount::infoPlugin()
 {
     if ( m_twitterInfoPlugin.isNull() )
-        m_twitterInfoPlugin = QWeakPointer< Tomahawk::InfoSystem::TwitterInfoPlugin >( new Tomahawk::InfoSystem::TwitterInfoPlugin( this ) );
+        m_twitterInfoPlugin = QPointer< Tomahawk::InfoSystem::TwitterInfoPlugin >( new Tomahawk::InfoSystem::TwitterInfoPlugin( this ) );
 
     return Tomahawk::InfoSystem::InfoPluginPtr( m_twitterInfoPlugin.data() );
 }
@@ -132,13 +137,13 @@ TwitterAccount::authenticateSlot()
             Tomahawk::InfoSystem::InfoSystem::instance()->addInfoPlugin( infoPlugin() );
         }
     }
-    
+
     if ( m_isAuthenticating )
     {
         tDebug( LOGVERBOSE ) << Q_FUNC_INFO << "Already authenticating";
         return;
     }
-    
+
     tDebug() << Q_FUNC_INFO << "credentials: " << credentials().keys();
 
     if ( credentials()[ "oauthtoken" ].toString().isEmpty() || credentials()[ "oauthtokensecret" ].toString().isEmpty() )
@@ -162,7 +167,7 @@ void
 TwitterAccount::deauthenticate()
 {
     tDebug() << Q_FUNC_INFO;
-    
+
     if ( m_twitterSipPlugin )
         sipPlugin()->disconnectPlugin();
 
@@ -171,7 +176,7 @@ TwitterAccount::deauthenticate()
 
     m_isAuthenticated = false;
     m_isAuthenticating = false;
-    
+
     emit nowDeauthenticated();
 }
 
@@ -186,7 +191,7 @@ TwitterAccount::refreshTwitterAuth()
 
     Q_ASSERT( TomahawkUtils::nam() != 0 );
     tDebug() << Q_FUNC_INFO << " with nam " << TomahawkUtils::nam();
-    m_twitterAuth = QWeakPointer< TomahawkOAuthTwitter >( new TomahawkOAuthTwitter( TomahawkUtils::nam(), this ) );
+    m_twitterAuth = QPointer< TomahawkOAuthTwitter >( new TomahawkOAuthTwitter( TomahawkUtils::nam(), this ) );
 
     if( m_twitterAuth.isNull() )
       return false;
@@ -224,8 +229,11 @@ TwitterAccount::connectAuthVerifyReply( const QTweetUser &user )
 
 
 QPixmap
-TwitterAccount::icon() const {
-    return QPixmap( ":/twitter-icon.png" );
+TwitterAccount::icon() const
+{
+    if ( connectionState() == Connected )
+        return m_onlinePixmap;
+    return m_offlinePixmap;
 }
 
 

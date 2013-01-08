@@ -1,26 +1,16 @@
 project( tomahawklib )
 
-SET( QT_USE_QTGUI TRUE )
-SET( QT_USE_QTSQL TRUE )
-SET( QT_USE_QTNETWORK TRUE )
-SET( QT_USE_QTXML TRUE )
-SET( QT_USE_QTUITOOLS TRUE )
-
-IF(ENABLE_VISUALIZER)
-    SET( QT_USE_QTOPENGL TRUE )
-    FIND_PACKAGE (OpenGL REQUIRED)
-ENDIF(ENABLE_VISUALIZER)
-
-IF( UNIX AND NOT APPLE )
-  SET( QT_USE_QTDBUS TRUE )
-ENDIF( UNIX AND NOT APPLE )
-
-include( ${QT_USE_FILE} )
+setup_qt()
 
 add_definitions( ${QT_DEFINITIONS} )
 add_definitions( -DQT_SHARED )
 add_definitions( -DDLLEXPORT_PRO )
 add_definitions( -DQT_SHAREDPOINTER_TRACK_POINTERS )
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../Config.h.in
+               ${CMAKE_CURRENT_BINARY_DIR}/config.h)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../TomahawkVersion.h.in
+               ${CMAKE_CURRENT_BINARY_DIR}/TomahawkVersion.h)
 
 set( libGuiSources
     ActionCollection.cpp
@@ -76,10 +66,11 @@ set( libGuiSources
     playlist/LovedTracksModel.cpp
     playlist/RecentlyAddedModel.cpp
     playlist/RecentlyPlayedModel.cpp
+    playlist/AlbumItemDelegate.cpp
     playlist/PlaylistLargeItemDelegate.cpp
     playlist/PlaylistChartItemDelegate.cpp
     playlist/PlayableItem.cpp
-    playlist/SingleTrackPlaylistInterface.h
+    playlist/SingleTrackPlaylistInterface.cpp
 
     playlist/dynamic/DynamicPlaylist.cpp
     playlist/dynamic/DynamicView.cpp
@@ -99,6 +90,7 @@ set( libGuiSources
     resolvers/ScriptResolver.cpp
     resolvers/QtScriptResolver.cpp
 
+    utils/ImageRegistry.cpp
     utils/WidgetDragFilter.cpp
     utils/XspfGenerator.cpp
     utils/JspfLoader.cpp
@@ -107,6 +99,8 @@ set( libGuiSources
     utils/ItunesParser.cpp
     utils/RdioParser.cpp
     utils/ShortenedLinkParser.cpp
+    utils/SoundcloudParser.cpp
+    utils/ExfmParser.cpp
     utils/StyleHelper.cpp
     utils/DropJobNotifier.cpp
     utils/ProxyStyle.cpp
@@ -118,8 +112,11 @@ set( libGuiSources
     utils/BinaryInstallerHelper.cpp
     utils/BinaryExtractWorker.cpp
     utils/SharedTimeLine.cpp
+    utils/WebResultHintChecker.cpp
+    utils/NetworkReply.cpp
 
     widgets/AnimatedCounterLabel.cpp
+    widgets/BasicHeader.cpp
     widgets/Breadcrumb.cpp
     widgets/BreadcrumbButton.cpp
     widgets/CheckDirTree.cpp
@@ -144,6 +141,7 @@ set( libGuiSources
     widgets/ComboBox.cpp
     widgets/ToggleButton.cpp
     widgets/FadingPixmap.cpp
+    widgets/PlayableCover.cpp
     widgets/SocialPlaylistWidget.cpp
     widgets/SourceTreePopupDialog.cpp
     widgets/infowidgets/SourceInfoWidget.cpp
@@ -156,10 +154,17 @@ set( libGuiSources
     widgets/searchlineedit/SearchLineEdit.cpp
 )
 
-IF(QCA2_FOUND)
+if(QCA2_FOUND)
     set( libGuiSources ${libGuiSources} utils/GroovesharkParser.cpp )
-    set( libGuiHeaders ${libGuiHeaders} utils/GroovesharkParser.h )
-ENDIF(QCA2_FOUND)
+endif()
+
+if(UNIX AND NOT APPLE AND NOT Qt5Core_DIR)
+    if(BUILD_GUI AND X11_FOUND)
+        include_directories( ${THIRDPARTY_DIR}/libqnetwm )
+        list(APPEND libSources ${libSources} ${THIRDPARTY_DIR}/libqnetwm/libqnetwm/netwm.cpp)
+        list(APPEND LINK_LIBRARIES ${X11_LIBRARIES})
+    endif()
+endif()
 
 IF(ENABLE_VISUALIZER)
     set( libGuiSources ${libGuiSources} widgets/visualizer/VisualizerWidget.cpp widgets/visualizer/VSXuRenderer.cpp)
@@ -167,7 +172,7 @@ IF(ENABLE_VISUALIZER)
     include_directories( ${VSXU_INCLUDE_DIRS} )
 ENDIF(ENABLE_VISUALIZER)
 
-set( libSources
+list(APPEND libSources
     TomahawkSettings.cpp
     SourceList.cpp
     Pipeline.cpp
@@ -178,9 +183,11 @@ set( libSources
     Album.cpp
     AlbumPlaylistInterface.cpp
     Collection.cpp
+    CountryUtils.cpp
     FuncTimeout.cpp
     Playlist.cpp
     PlaylistPlaylistInterface.cpp
+    MetaPlaylistInterface.cpp
     Resolver.cpp
     ExternalResolver.cpp
     Query.cpp
@@ -267,6 +274,7 @@ set( libSources
     database/DatabaseCommand_CollectionAttributes.cpp
     database/DatabaseCommand_TrackAttributes.cpp
     database/DatabaseCommand_SetTrackAttributes.cpp
+    database/DatabaseCommand_PlaybackCharts.cpp
     database/Database.cpp
     database/TomahawkSqlQuery.cpp
     database/IdThreadWorker.cpp
@@ -332,7 +340,6 @@ set( libUI ${libUI}
     widgets/infowidgets/AlbumInfoWidget.ui
     widgets/infowidgets/TrackInfoWidget.ui
     playlist/QueueView.ui
-    playlist/PlaylistHeader.ui
     filemetadata/MetadataEditor.ui
     context/ContextWidget.ui
     infobar/InfoBar.ui
@@ -341,20 +348,18 @@ set( libUI ${libUI}
     accounts/lastfm/LastFmConfig.ui
 )
 
-include_directories( . ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/.. ..
+include_directories(
+    ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
+
     ${QT_INCLUDE_DIR}
     ${QJSON_INCLUDE_DIR}
     ${ECHONEST_INCLUDE_DIR}
     ${LIBLASTFM_INCLUDE_DIRS}
-    ${LIBLASTFM_INCLUDE_DIRS}/..
     ${CLUCENE_INCLUDE_DIRS}
     ${PHONON_INCLUDES}
 
-    playlist
-
     ${LIBPORTFWD_INCLUDE_DIR}
-    ${THIRDPARTY_DIR}/qxt/qxtweb-standalone/qxtweb
     ${QuaZip_INCLUDE_DIR}
 )
 
@@ -364,18 +369,9 @@ ENDIF(QCA2_FOUND)
 
 IF(LIBATTICA_FOUND)
     SET( libGuiSources ${libGuiSources} AtticaManager.cpp )
-    SET( libGuiHeaders ${libGuiHeaders} AtticaManager.h )
     INCLUDE_DIRECTORIES( ${LIBATTICA_INCLUDE_DIR} )
+    LIST(APPEND LINK_LIBRARIES ${LIBATTICA_LIBRARIES} ${QuaZip_LIBRARIES} )
 ENDIF(LIBATTICA_FOUND)
-
-IF( UNIX AND NOT APPLE )
-    IF( BUILD_GUI AND X11_FOUND )
-        INCLUDE_DIRECTORIES( ${THIRDPARTY_DIR}/libqnetwm )
-        SET( libSources ${libSources} ${THIRDPARTY_DIR}/libqnetwm/libqnetwm/netwm.cpp )
-        SET( LINK_LIBRARIES ${LINK_LIBRARIES} ${X11_LIBRARIES} )
-    ENDIF()
-ENDIF( UNIX AND NOT APPLE )
-
 
 IF( WIN32 )
     SET( OS_SPECIFIC_LINK_LIBRARIES
@@ -403,7 +399,9 @@ IF( APPLE )
     SET( libSources ${libSources}
       utils/TomahawkUtils_Mac.mm
       mac/FileHelpers.mm
+      thirdparty/Qocoa/qbutton_mac.mm
       thirdparty/Qocoa/qsearchfield_mac.mm
+      thirdparty/Qocoa/qtoolbartabdialog_mac.mm
       widgets/SourceTreePopupDialog_mac.mm )
 
     SET_SOURCE_FILES_PROPERTIES(utils/TomahawkUtils_Mac.mm PROPERTIES COMPILE_FLAGS "-fvisibility=default")
@@ -420,11 +418,11 @@ IF( APPLE )
         /System/Library/Frameworks/Security.framework
     )
 ELSE( APPLE )
-    SET( libGuiSources ${libGuiSources} thirdparty/Qocoa/qsearchfield.cpp )
+    SET( libGuiSources ${libGuiSources} thirdparty/Qocoa/qbutton.cpp thirdparty/Qocoa/qsearchfield.cpp thirdparty/Qocoa/qtoolbartabdialog.cpp )
 ENDIF( APPLE )
 
 IF(LIBLASTFM_FOUND)
-    SET(LINK_LIBRARIES ${LINK_LIBRARIES} ${LIBLASTFM_LIBRARIES} )
+    LIST(APPEND LINK_LIBRARIES ${LIBLASTFM_LIBRARIES} )
 ENDIF(LIBLASTFM_FOUND)
 
 IF(ENABLE_VISUALIZER)
@@ -436,23 +434,20 @@ IF(BUILD_GUI)
     LIST(APPEND libSources ${libGuiSources} )
 ENDIF()
 
-qt4_wrap_ui( libUI_H ${libUI} )
+qt_wrap_ui(libUI_H ${libUI})
 
 SET( libSources ${libSources} ${libUI_H} )
 
-ADD_LIBRARY( tomahawklib SHARED ${libSources})
+add_library( tomahawklib SHARED ${libSources})
 set_target_properties(tomahawklib PROPERTIES AUTOMOC TRUE)
+qt5_use_modules(tomahawklib Widgets Network Sql WebKitWidgets Concurrent Xml UiTools Svg)
 
 IF(QCA2_FOUND)
-    SET(LINK_LIBRARIES ${LINK_LIBRARIES} ${QCA2_LIBRARIES} )
+    LIST(APPEND LINK_LIBRARIES ${QCA2_LIBRARIES} )
 ENDIF(QCA2_FOUND)
 
-IF(LIBATTICA_FOUND)
-    SET( LINK_LIBRARIES ${LINK_LIBRARIES} ${LIBATTICA_LIBRARIES} ${QuaZip_LIBRARIES} )
-ENDIF(LIBATTICA_FOUND)
-
 IF( UNIX AND NOT APPLE )
-    SET( LINK_LIBRARIES ${LINK_LIBRARIES} ${QT_QTDBUS_LIBRARY} )
+    LIST(APPEND LINK_LIBRARIES ${QT_QTDBUS_LIBRARY} )
 ENDIF( UNIX AND NOT APPLE )
 
 TARGET_LINK_LIBRARIES( tomahawklib
@@ -472,6 +467,7 @@ TARGET_LINK_LIBRARIES( tomahawklib
     ${QT_QTSCRIPT_LIBRARY}
     ${QT_QTNETWORK_LIBRARY}
     ${QT_QTXML_LIBRARY}
+    ${QT_QTSVG_LIBRARY}
     ${QT_QTCORE_LIBRARY}
     ${OS_SPECIFIC_LINK_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}

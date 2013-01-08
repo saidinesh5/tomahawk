@@ -36,13 +36,12 @@ class DLLEXPORT TreeItemDelegate : public QStyledItemDelegate
 Q_OBJECT
 
 public:
-    TreeItemDelegate( TreeView* parent = 0, TreeProxyModel* proxy = 0 );
+    TreeItemDelegate( TreeView* parent, TreeProxyModel* proxy );
+
+    virtual QSize sizeHint( const QStyleOptionViewItem& option, const QModelIndex& index ) const;
 
 protected:
     void paint( QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index ) const;
-    QSize sizeHint( const QStyleOptionViewItem& option, const QModelIndex& index ) const;
-
-//    QWidget* createEditor( QWidget* parent, const QStyleOptionViewItem& option, const QModelIndex& index ) const;
 
 signals:
     void updateIndex( const QModelIndex& idx );

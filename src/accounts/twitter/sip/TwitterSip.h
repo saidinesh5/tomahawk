@@ -21,9 +21,10 @@
 #ifndef TWITTER_H
 #define TWITTER_H
 
-#include <QTimer>
-#include <QWeakPointer>
-#include <QSet>
+#include "accounts/AccountDllMacro.h"
+#include "sip/SipPlugin.h"
+#include "accounts/Account.h"
+#include "accounts/twitter/TomahawkOAuthTwitter.h"
 
 #include <QTweetLib/qtweetuser.h>
 #include <QTweetLib/qtweetnetbase.h>
@@ -34,10 +35,10 @@
 #include <QTweetLib/qtweetmentions.h>
 #include <QTweetLib/qtweetdmstatus.h>
 
-#include "accounts/AccountDllMacro.h"
-#include "sip/SipPlugin.h"
-#include "accounts/Account.h"
-#include "accounts/twitter/TomahawkOAuthTwitter.h"
+#include <QTimer>
+#include <QPointer>
+#include <QSet>
+
 
 class ACCOUNTDLLEXPORT TwitterSipPlugin : public SipPlugin
 {
@@ -50,6 +51,7 @@ public:
 
     virtual bool isValid() const;
     virtual Tomahawk::Accounts::Account::ConnectionState connectionState() const;
+    virtual QString inviteString() const;
 
 signals:
     void stateChanged( Tomahawk::Accounts::Account::ConnectionState );
@@ -79,7 +81,7 @@ public slots:
     void checkSettings();
 
 private slots:
-    void accountAuthenticated( const QWeakPointer< TomahawkOAuthTwitter > &twitterAuth, const QTweetUser &user );
+    void accountAuthenticated( const QPointer< TomahawkOAuthTwitter > &twitterAuth, const QTweetUser &user );
     void checkTimerFired();
     void connectTimerFired();
     void friendsTimelineStatuses( const QList< QTweetStatus > &statuses );
@@ -102,13 +104,13 @@ private:
     bool refreshTwitterAuth();
     void parseGotTomahawk( const QRegExp &regex, const QString &screenName, const QString &text );
 
-    QWeakPointer< TomahawkOAuthTwitter > m_cachedTwitterAuth;
+    QPointer< TomahawkOAuthTwitter > m_cachedTwitterAuth;
 
-    QWeakPointer< QTweetFriendsTimeline > m_friendsTimeline;
-    QWeakPointer< QTweetMentions > m_mentions;
-    QWeakPointer< QTweetDirectMessages > m_directMessages;
-    QWeakPointer< QTweetDirectMessageNew > m_directMessageNew;
-    QWeakPointer< QTweetDirectMessageDestroy > m_directMessageDestroy;
+    QPointer< QTweetFriendsTimeline > m_friendsTimeline;
+    QPointer< QTweetMentions > m_mentions;
+    QPointer< QTweetDirectMessages > m_directMessages;
+    QPointer< QTweetDirectMessageNew > m_directMessageNew;
+    QPointer< QTweetDirectMessageDestroy > m_directMessageDestroy;
 
     QVariantHash m_configuration;
 

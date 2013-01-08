@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>375</width>
-    <height>417</height>
+    <height>487</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>Form</string>
+   <string notr="true" extracomment="not translatable because not shown to the user">Form</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
@@ -136,7 +136,27 @@
     </widget>
    </item>
    <item>
+    <widget class="QCheckBox" name="selectAllCheckbox">
+     <property name="text">
+      <string>Select All</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="QListWidget" name="playlistList"/>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="loveSync">
+     <property name="layoutDirection">
+      <enum>Qt::LeftToRight</enum>
+     </property>
+     <property name="text">
+      <string>Sync Starred tracks to Loved tracks</string>
+     </property>
+     <property name="checked">
+      <bool>false</bool>
+     </property>
+    </widget>
    </item>
    <item>
     <widget class="QCheckBox" name="streamingCheckbox">

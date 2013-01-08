@@ -14,7 +14,7 @@ INCLUDE(CheckSymbolExists)
 INCLUDE(FindLibraryWithDebug)
 
 # try to locate a patched unstable version (for comp's sake *sigh*) first
-FIND_PACKAGE(CLuceneUnstable)
+FIND_PACKAGE(CLuceneUnstable QUIET)
 IF(CLUCENEUNSTABLE_FOUND)
     SET(CLucene_FOUND TRUE)
     SET(CLUCENE_INCLUDE_DIR ${CLUCENE_UNSTABLE_INCLUDE_DIRS})
@@ -41,6 +41,7 @@ SET(TRIAL_LIBRARY_PATHS
   /sw/lib${LIB_SUFFIX}
   /usr/pkg/lib${LIB_SUFFIX}
   /usr/lib64
+  /usr/lib/${CMAKE_LIBRARY_ARCHITECTURE}
   )
 SET(TRIAL_INCLUDE_PATHS
   $ENV{CLUCENE_HOME}/include

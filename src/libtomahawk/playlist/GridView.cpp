@@ -19,12 +19,6 @@
 
 #include "GridView.h"
 
-#include <QHeaderView>
-#include <QKeyEvent>
-#include <QPainter>
-#include <QScrollBar>
-#include <qmath.h>
-
 #include "audio/AudioEngine.h"
 #include "context/ContextWidget.h"
 #include "TomahawkSettings.h"
@@ -35,45 +29,24 @@
 #include "AlbumModel.h"
 #include "PlayableModel.h"
 #include "PlayableProxyModelPlaylistInterface.h"
-#include "SingleTrackPlaylistInterface.h"
 #include "ContextMenu.h"
 #include "ViewManager.h"
+#include "MetaPlaylistInterface.h"
 #include "utils/Logger.h"
 #include "utils/AnimatedSpinner.h"
 #include "utils/TomahawkUtilsGui.h"
+
+#include <QHeaderView>
+#include <QKeyEvent>
+#include <QPainter>
+#include <QScrollBar>
+#include <QDrag>
+#include <qmath.h>
 
 #define SCROLL_TIMEOUT 280
 
 using namespace Tomahawk;
 
-class GridPlaylistInterface : public PlayableProxyModelPlaylistInterface {
-    Q_OBJECT
-public:
-    explicit GridPlaylistInterface( PlayableProxyModel* proxy, GridView* view ) : PlayableProxyModelPlaylistInterface( proxy ), m_view( view ) {}
-
-    virtual bool hasChildInterface( playlistinterface_ptr playlistInterface )
-    {
-        if ( m_view.isNull() || !m_view.data()->m_playing.isValid() )
-        {
-            return false;
-        }
-
-        PlayableItem* item = m_view.data()->model()->itemFromIndex( m_view.data()->proxyModel()->mapToSource( m_view.data()->m_playing ) );
-        if ( item )
-        {
-            if ( !item->album().isNull() )
-                return item->album()->playlistInterface( Tomahawk::Mixed ) == playlistInterface;
-            else if ( !item->artist().isNull() )
-                return item->artist()->playlistInterface( Tomahawk::Mixed ) == playlistInterface;
-            else if ( !item->query().isNull() && !playlistInterface.dynamicCast< SingleTrackPlaylistInterface >().isNull() )
-                return item->query() == playlistInterface.dynamicCast< SingleTrackPlaylistInterface >()->track();
-        }
-
-        return false;
-    }
-private:
-    QWeakPointer<GridView> m_view;
-};
 
 GridView::GridView( QWidget* parent )
     : QListView( parent )
@@ -101,24 +74,20 @@ GridView::GridView( QWidget* parent )
     setVerticalScrollMode( QAbstractItemView::ScrollPerPixel );
     setVerticalScrollBarPolicy( Qt::ScrollBarAlwaysOn );
 
-    setStyleSheet( "QListView { background-color: #323435; }" );
+    setStyleSheet( "QListView { background-color: #272b2e; }" );
 
     setAutoFitItems( true );
     setAutoResize( false );
     setProxyModel( new PlayableProxyModel( this ) );
 
-    m_playlistInterface = playlistinterface_ptr( new GridPlaylistInterface( m_proxyModel, this ) );
-
     connect( this, SIGNAL( doubleClicked( QModelIndex ) ), SLOT( onItemActivated( QModelIndex ) ) );
     connect( this, SIGNAL( customContextMenuRequested( QPoint ) ), SLOT( onCustomContextMenu( QPoint ) ) );
-
-    connect( proxyModel(), SIGNAL( modelReset() ), SLOT( layoutItems() ) );
 }
 
 
 GridView::~GridView()
 {
-    qDebug() << Q_FUNC_INFO;
+    tDebug() << Q_FUNC_INFO;
 }
 
 
@@ -128,10 +97,19 @@ GridView::setProxyModel( PlayableProxyModel* model )
     if ( m_proxyModel )
     {
         disconnect( m_proxyModel, SIGNAL( filterChanged( QString ) ), this, SLOT( onFilterChanged( QString ) ) );
+        disconnect( m_proxyModel, SIGNAL( rowsInserted( QModelIndex, int, int ) ), this, SLOT( verifySize() ) );
+        disconnect( m_proxyModel, SIGNAL( rowsRemoved( QModelIndex, int, int ) ), this, SLOT( verifySize() ) );
+        disconnect( proxyModel(), SIGNAL( modelReset() ), this, SLOT( layoutItems() ) );
     }
 
     m_proxyModel = model;
     connect( m_proxyModel, SIGNAL( filterChanged( QString ) ), SLOT( onFilterChanged( QString ) ) );
+    connect( m_proxyModel, SIGNAL( rowsInserted( QModelIndex, int, int ) ), SLOT( verifySize() ) );
+    connect( m_proxyModel, SIGNAL( rowsRemoved( QModelIndex, int, int ) ), SLOT( verifySize() ) );
+    connect( proxyModel(), SIGNAL( modelReset() ), SLOT( layoutItems() ) );
+    
+    if ( m_delegate )
+        delete m_delegate;
 
     m_delegate = new GridItemDelegate( this, m_proxyModel );
     connect( m_delegate, SIGNAL( updateIndex( QModelIndex ) ), this, SLOT( update( QModelIndex ) ) );
@@ -155,23 +133,14 @@ GridView::setModel( QAbstractItemModel* model )
 void
 GridView::setPlayableModel( PlayableModel* model )
 {
-    if ( m_model )
-    {
-        disconnect( model, SIGNAL( rowsInserted( QModelIndex, int, int ) ), this, SLOT( verifySize() ) );
-        disconnect( model, SIGNAL( rowsRemoved( QModelIndex, int, int ) ), this, SLOT( verifySize() ) );
-    }
-
     m_inited = false;
     m_model = model;
 
     if ( m_proxyModel )
     {
         m_proxyModel->setSourcePlayableModel( m_model );
-        m_proxyModel->sort( 0 );
+        m_proxyModel->sort( -1 );
     }
-
-    connect( model, SIGNAL( rowsInserted( QModelIndex, int, int ) ), SLOT( verifySize() ) );
-    connect( model, SIGNAL( rowsRemoved( QModelIndex, int, int ) ), SLOT( verifySize() ) );
 
     emit modelChanged();
 }
@@ -265,10 +234,10 @@ GridView::verifySize()
     const int rows = floor( (double)m_model->rowCount( QModelIndex() ) / (double)itemsPerRow );
     const int newHeight = rows * m_delegate->itemSize().height();
 
+    m_proxyModel->setMaxVisibleItems( m_model->rowCount( QModelIndex() ) - overlapRows );
+
     if ( newHeight > 0 )
         setFixedHeight( newHeight );
-
-    m_proxyModel->setMaxVisibleItems( m_model->rowCount( QModelIndex() ) - overlapRows );
 }
 
 
@@ -406,6 +375,7 @@ GridView::setFilter( const QString& filter )
     return true;
 }
 
+
 bool
 GridView::jumpToCurrentTrack()
 {
@@ -425,6 +395,20 @@ GridView::currentTrackRect() const
         return QRect();
 
     return visualRect( m_playing );
+}
+
+
+playlistinterface_ptr
+GridView::playlistInterface() const
+{
+    return proxyModel()->playlistInterface();
+}
+
+
+void
+GridView::setPlaylistInterface( const Tomahawk::playlistinterface_ptr& playlistInterface )
+{
+    proxyModel()->setPlaylistInterface( playlistInterface );
 }
 
 

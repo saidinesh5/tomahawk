@@ -20,10 +20,10 @@
 
 #include "sourcetree/SourcesModel.h"
 
-#include <boost/bind.hpp>
-
 #include <QMimeData>
 #include <QSize>
+
+#include <boost/bind.hpp>
 
 #include "sourcetree/items/SourceTreeItem.h"
 #include "sourcetree/items/SourceItem.h"
@@ -36,14 +36,14 @@
 #include "Collection.h"
 #include "Source.h"
 #include "ViewManager.h"
-
-#include "utils/Logger.h"
 #include "GlobalActionManager.h"
 #include "DropJob.h"
 #include "items/PlaylistItems.h"
 #include "playlist/TreeView.h"
 #include "playlist/PlaylistView.h"
 #include "playlist/dynamic/widgets/DynamicWidget.h"
+#include "utils/ImageRegistry.h"
+#include "utils/Logger.h"
 
 #ifdef ENABLE_VISUALIZER
 #include <QtOpenGL/QGLFormat>
@@ -286,13 +286,13 @@ SourcesModel::appendGroups()
 //    new SourceTreeItem( this, m_rootItem, SourcesModel::Divider, 2 );
     m_myMusicGroup = new GroupItem( this, m_rootItem, tr( "My Music" ), 3 );
 
-    GenericPageItem* dashboard = new GenericPageItem( this, browse, tr( "Dashboard" ), QIcon( RESPATH "images/dashboard.png" ),
+    GenericPageItem* dashboard = new GenericPageItem( this, browse, tr( "Dashboard" ), ImageRegistry::instance()->icon( RESPATH "images/dashboard.svg" ),
                                                       boost::bind( &ViewManager::showWelcomePage, ViewManager::instance() ),
                                                       boost::bind( &ViewManager::welcomeWidget, ViewManager::instance() ) );
     dashboard->setSortValue( 0 );
 
     // super collection
-    GenericPageItem* sc = new GenericPageItem( this, browse, tr( "SuperCollection" ), QIcon( RESPATH "images/supercollection.png" ),
+    GenericPageItem* sc = new GenericPageItem( this, browse, tr( "SuperCollection" ), ImageRegistry::instance()->icon( RESPATH "images/supercollection.svg" ),
                                                   boost::bind( &ViewManager::showSuperCollection, ViewManager::instance() ),
                                                   boost::bind( &ViewManager::superCollectionView, ViewManager::instance() ) );
     sc->setSortValue( 1 );
@@ -301,17 +301,17 @@ SourcesModel::appendGroups()
     LovedTracksItem* loved = new LovedTracksItem( this, browse );
     loved->setSortValue( 2 );
 
-    GenericPageItem* recent = new GenericPageItem( this, browse, tr( "Recently Played" ), QIcon( RESPATH "images/recently-played.png" ),
+    GenericPageItem* recent = new GenericPageItem( this, browse, tr( "Recently Played" ), ImageRegistry::instance()->icon( RESPATH "images/recently-played.svg" ),
                                                    boost::bind( &ViewManager::showRecentPlaysPage, ViewManager::instance() ),
                                                    boost::bind( &ViewManager::recentPlaysWidget, ViewManager::instance() ) );
     recent->setSortValue( 3 );
 
-    GenericPageItem* hot = new GenericPageItem( this, browse, tr( "Charts" ), QIcon( RESPATH "images/charts.png" ),
+    GenericPageItem* hot = new GenericPageItem( this, browse, tr( "Charts" ), ImageRegistry::instance()->icon( RESPATH "images/charts.svg" ),
                                                 boost::bind( &ViewManager::showWhatsHotPage, ViewManager::instance() ),
                                                 boost::bind( &ViewManager::whatsHotWidget, ViewManager::instance() ) );
     hot->setSortValue( 4 );
 
-    GenericPageItem* newReleases = new GenericPageItem( this, browse, tr( "New Releases" ), QIcon( RESPATH "images/new-releases.png" ),
+    GenericPageItem* newReleases = new GenericPageItem( this, browse, tr( "New Releases" ), ImageRegistry::instance()->icon( RESPATH "images/new-releases.svg" ),
                                                 boost::bind( &ViewManager::showNewReleasesPage, ViewManager::instance() ),
                                                 boost::bind( &ViewManager::newReleasesWidget, ViewManager::instance() ) );
     newReleases->setSortValue( 5 );
@@ -684,4 +684,11 @@ void
 SourcesModel::itemToggleExpandRequest( SourceTreeItem *item )
 {
     emit toggleExpandRequest( QPersistentModelIndex( indexFromItem( item ) ) );
+}
+
+
+QList< source_ptr >
+SourcesModel::sourcesWithViewPage() const
+{
+    return m_sourcesWithViewPage;
 }

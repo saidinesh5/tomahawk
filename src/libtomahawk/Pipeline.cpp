@@ -68,7 +68,7 @@ Pipeline::~Pipeline()
     m_running = false;
 
     // stop script resolvers
-    foreach ( QWeakPointer< ExternalResolver > r, m_scriptResolvers )
+    foreach ( QPointer< ExternalResolver > r, m_scriptResolvers )
         if ( !r.isNull() )
             r.data()->deleteLater();
 
@@ -141,7 +141,7 @@ Pipeline::addScriptResolver( const QString& path )
         if ( !res )
             continue;
 
-        m_scriptResolvers << QWeakPointer< ExternalResolver >( res );
+        m_scriptResolvers << QPointer< ExternalResolver > ( res );
 
         break;
     }
@@ -153,7 +153,7 @@ Pipeline::addScriptResolver( const QString& path )
 void
 Pipeline::stopScriptResolver( const QString& path )
 {
-    foreach ( QWeakPointer< ExternalResolver > res, m_scriptResolvers )
+    foreach ( QPointer< ExternalResolver > res, m_scriptResolvers )
     {
         if ( res.data()->filePath() == path )
             res.data()->stop();
@@ -164,8 +164,8 @@ Pipeline::stopScriptResolver( const QString& path )
 void
 Pipeline::removeScriptResolver( const QString& scriptPath )
 {
-    QWeakPointer< ExternalResolver > r;
-    foreach ( QWeakPointer< ExternalResolver > res, m_scriptResolvers )
+    QPointer< ExternalResolver > r;
+    foreach ( QPointer< ExternalResolver > res, m_scriptResolvers )
     {
         if ( res.isNull() )
             continue;
@@ -186,7 +186,7 @@ Pipeline::removeScriptResolver( const QString& scriptPath )
 ExternalResolver*
 Pipeline::resolverForPath( const QString& scriptPath )
 {
-    foreach ( QWeakPointer< ExternalResolver > res, m_scriptResolvers )
+    foreach ( QPointer< ExternalResolver > res, m_scriptResolvers )
     {
         if ( res.data()->filePath() == scriptPath )
             return res.data();
@@ -240,6 +240,13 @@ Pipeline::resolve( const QList<query_ptr>& qlist, bool prioritized, bool tempora
 }
 
 
+bool
+Pipeline::isResolving( const query_ptr& q ) const
+{
+    return m_qids.contains( q->id() ) && m_qidsState.contains( q->id() );
+}
+
+
 void
 Pipeline::resolve( const query_ptr& q, bool prioritized, bool temporaryQuery )
 {
@@ -275,13 +282,13 @@ Pipeline::reportResults( QID qid, const QList< result_ptr >& results )
     Q_ASSERT( !q.isNull() );
     if ( q.isNull() )
         return;
-    
+
     QList< result_ptr > cleanResults;
     foreach ( const result_ptr& r, results )
     {
         if ( r.isNull() )
             continue;
-        
+
         float score = q->howSimilar( r );
         r->setScore( score );
         if ( !q->isFullTextQuery() && score < MINSCORE )

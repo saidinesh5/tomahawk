@@ -23,8 +23,8 @@
 #include "Typedefs.h"
 #include "SourcePlaylistInterface.h"
 
-#include <QtGui/QTreeView>
-#include <QtGui/QMenu>
+#include <QTreeView>
+#include <QMenu>
 
 class SourceTreePopupDialog;
 class CollectionModel;
@@ -110,7 +110,7 @@ private:
     QModelIndex m_contextMenuIndex;
     SourceDelegate* m_delegate;
     Tomahawk::LatchManager* m_latchManager;
-    QWeakPointer<SourceTreePopupDialog> m_popupDialog;
+    QPointer<SourceTreePopupDialog> m_popupDialog;
 
     QMenu m_playlistMenu;
     QMenu m_roPlaylistMenu;

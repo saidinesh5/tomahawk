@@ -111,7 +111,7 @@ public:
 
     QPair< Tomahawk::source_ptr, unsigned int > playedBy() const;
     Tomahawk::Resolver* currentResolver() const;
-    QList< QWeakPointer< Tomahawk::Resolver > > resolvedBy() const { return m_resolvers; }
+    QList< QPointer< Tomahawk::Resolver > > resolvedBy() const { return m_resolvers; }
 
     void setArtist( const QString& artist ) { m_artist = artist; updateSortNames(); }
     void setComposer( const QString& composer ) { m_composer = composer; updateSortNames(); }
@@ -163,6 +163,9 @@ public:
     QList< Tomahawk::SocialAction > allSocialActions() const;
     void setAllSocialActions( const QList< Tomahawk::SocialAction >& socialActions );
     QString socialActionDescription( const QString& action, DescriptionMode mode ) const;
+
+    void setSaveHTTPResultHint( bool saveResultHint );
+    bool saveHTTPResultHint() const { return m_saveResultHint; }
 
     QList<Tomahawk::query_ptr> similarTracks() const;
     QStringList lyrics() const;
@@ -252,7 +255,9 @@ private:
     mutable Tomahawk::album_ptr m_albumPtr;
 
     QPair< Tomahawk::source_ptr, unsigned int > m_playedBy;
-    QList< QWeakPointer< Tomahawk::Resolver > > m_resolvers;
+    QList< QPointer< Tomahawk::Resolver > > m_resolvers;
+
+    bool m_saveResultHint;
 
     mutable QMutex m_mutex;
     QWeakPointer< Tomahawk::Query > m_ownRef;

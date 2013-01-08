@@ -20,22 +20,15 @@
 
 #include "TomahawkApp.h"
 
-#include <iostream>
+#include <boost/bind.hpp>
 
-#include <QtCore/QPluginLoader>
-#include <QtCore/QDir>
-#include <QtCore/QMetaType>
-#include <QtCore/QTime>
-#include <QtNetwork/QNetworkReply>
-#include <QtCore/QFile>
-#include <QtCore/QFileInfo>
-#include <QTranslator>
-
+#include "TomahawkVersion.h"
 #include "AclRegistryImpl.h"
 #include "Album.h"
 #include "Artist.h"
 #include "Collection.h"
 #include "infosystem/InfoSystem.h"
+#include "infosystem/InfoSystemCache.h"
 #include "accounts/AccountManager.h"
 #include "accounts/spotify/SpotifyAccount.h"
 #include "accounts/lastfm/LastFmAccount.h"
@@ -69,8 +62,6 @@
 #include "accounts/spotify/SpotifyPlaylistUpdater.h"
 #include "utils/TomahawkCache.h"
 
-#include "config.h"
-
 #ifndef ENABLE_HEADLESS
     #include "resolvers/QtScriptResolver.h"
     #include "resolvers/ScriptResolver.h"
@@ -79,9 +70,14 @@
     #include "TomahawkWindow.h"
     #include "SettingsDialog.h"
     #include "ActionCollection.h"
-    #include <QtGui/QMessageBox>
     #include "widgets/HeaderLabel.h"
-    #include <TomahawkSettingsGui.h>
+    #include "TomahawkSettingsGui.h"
+#endif
+
+#include "config.h"
+
+#ifndef ENABLE_HEADLESS
+    #include <QMessageBox>
 #endif
 
 #ifdef Q_WS_MAC
@@ -90,6 +86,18 @@
 #include <sys/resource.h>
 #include <sys/sysctl.h>
 #endif
+
+#include <QPluginLoader>
+#include <QDir>
+#include <QMetaType>
+#include <QTime>
+#include <QNetworkReply>
+#include <QFile>
+#include <QFileInfo>
+#include <QTranslator>
+
+#include <iostream>
+
 
 const char* enApiSecret = "BNvTzfthHr/d1eNhHLvL1Jo=";
 
@@ -127,61 +135,25 @@ TomahawkApp::TomahawkApp( int& argc, char *argv[] )
     , m_headless( false )
     , m_loaded( false )
 {
-    setOrganizationName( QLatin1String( TOMAHAWK_ORGANIZATION_NAME ) );
-    setOrganizationDomain( QLatin1String( TOMAHAWK_ORGANIZATION_DOMAIN ) );
-    setApplicationName( QLatin1String( TOMAHAWK_APPLICATION_NAME ) );
-    setApplicationVersion( QLatin1String( TOMAHAWK_VERSION ) );
-
-    registerMetaTypes();
-    installTranslator();
-}
-
-
-void
-TomahawkApp::installTranslator()
-{
-    QString locale = QLocale::system().name();
-    if ( locale == "C" )
-        locale = "en";
-
-    // Tomahawk translations
-    QTranslator* translator = new QTranslator( this );
-    if ( translator->load( QString( ":/lang/tomahawk_" ) + locale ) )
-    {
-        tDebug() << "Translation: Tomahawk: Using system locale:" << locale;
-    }
-    else
-    {
-        tDebug() << "Translation: Tomahawk: Using default locale, system locale one not found:" << locale;
-        translator->load( QString( ":/lang/tomahawk_en" ) );
-    }
-
-    TOMAHAWK_APPLICATION::installTranslator( translator );
-
-    // Qt translations
-    translator = new QTranslator( this );
-    if ( translator->load( QString( ":/lang/qt_" ) + locale ) )
-    {
-        tDebug() << "Translation: Qt: Using system locale:" << locale;
-    }
-    else
-    {
-        tDebug() << "Translation: Qt: Using default locale, system locale one not found:" << locale;
-    }
-
-    TOMAHAWK_APPLICATION::installTranslator( translator );
-}
-
-
-void
-TomahawkApp::init()
-{
     if ( arguments().contains( "--help" ) || arguments().contains( "-h" ) )
     {
         printHelp();
         ::exit( 0 );
     }
 
+    setOrganizationName( QLatin1String( TOMAHAWK_ORGANIZATION_NAME ) );
+    setOrganizationDomain( QLatin1String( TOMAHAWK_ORGANIZATION_DOMAIN ) );
+    setApplicationName( QLatin1String( TOMAHAWK_APPLICATION_NAME ) );
+    setApplicationVersion( QLatin1String( TOMAHAWK_VERSION ) );
+
+    registerMetaTypes();
+    TomahawkUtils::installTranslator( this );
+}
+
+
+void
+TomahawkApp::init()
+{
     qDebug() << "TomahawkApp thread:" << thread();
     Logger::setupLogfile();
     qsrand( QTime( 0, 0, 0 ).secsTo( QTime::currentTime() ) );
@@ -195,34 +167,37 @@ TomahawkApp::init()
     setWindowIcon( QIcon( RESPATH "icons/tomahawk-icon-128x128.png" ) );
     setQuitOnLastWindowClosed( false );
 
-    QFont f = APP->font();
-    f.setPixelSize( HeaderLabel::defaultFontSize() );
-    QFontMetrics fm( f );
-    TomahawkUtils::setHeaderHeight( fm.height() + 8 );
+    QFont f = font();
+#ifdef Q_OS_MAC
+    f.setPointSize( f.pointSize() - 2 );
+    setFont( f );
+#endif
+
+    tDebug() << "Default font:" << f.pixelSize() << f.pointSize() << f.pointSizeF() << f.family();
+    tDebug() << "Font height:" << QFontMetrics( f ).height();
+    TomahawkUtils::setDefaultFontSize( f.pointSize() );
 #endif
 
     TomahawkUtils::setHeadless( m_headless );
-
     TomahawkSettings* s = TomahawkSettings::instance();
-
     new ACLRegistryImpl( this );
 
     tDebug( LOGINFO ) << "Setting NAM.";
     // Cause the creation of the nam, but don't need to address it directly, so prevent warning
     Q_UNUSED( TomahawkUtils::nam() );
 
-    m_audioEngine = QWeakPointer<AudioEngine>( new AudioEngine );
+    m_audioEngine = QPointer<AudioEngine>( new AudioEngine );
 
     // init pipeline and resolver factories
     new Pipeline();
 
-    m_servent = QWeakPointer<Servent>( new Servent( this ) );
+    m_servent = QPointer<Servent>( new Servent( this ) );
     connect( m_servent.data(), SIGNAL( ready() ), SLOT( initSIP() ) );
 
     tDebug() << "Init Database.";
     initDatabase();
 
-    m_scanManager = QWeakPointer<ScanManager>( new ScanManager( this ) );
+    m_scanManager = QPointer<ScanManager>( new ScanManager( this ) );
 
 #ifndef ENABLE_HEADLESS
     Pipeline::instance()->addExternalResolverFactory( boost::bind( &QtScriptResolver::factory, _1 ) );
@@ -247,7 +222,7 @@ TomahawkApp::init()
 
     // Register shortcut handler for this platform
 #ifdef Q_WS_MAC
-    m_shortcutHandler = QWeakPointer<Tomahawk::ShortcutHandler>( new MacShortcutHandler( this ) );
+    m_shortcutHandler = QPointer<Tomahawk::ShortcutHandler>( new MacShortcutHandler( this ) );
     Tomahawk::setShortcutHandler( static_cast<MacShortcutHandler*>( m_shortcutHandler.data() ) );
 
     Tomahawk::setApplicationHandler( this );
@@ -268,10 +243,10 @@ TomahawkApp::init()
     }
 
     tDebug() << "Init InfoSystem.";
-    m_infoSystem = QWeakPointer<Tomahawk::InfoSystem::InfoSystem>( Tomahawk::InfoSystem::InfoSystem::instance() );
+    m_infoSystem = QPointer<Tomahawk::InfoSystem::InfoSystem>( Tomahawk::InfoSystem::InfoSystem::instance() );
 
     tDebug() << "Init AccountManager.";
-    m_accountManager = QWeakPointer< Tomahawk::Accounts::AccountManager >( new Tomahawk::Accounts::AccountManager( this ) );
+    m_accountManager = QPointer< Tomahawk::Accounts::AccountManager >( new Tomahawk::Accounts::AccountManager( this ) );
     connect( m_accountManager.data(), SIGNAL( ready() ), SLOT( accountManagerReady() ) );
 
     Echonest::Config::instance()->setNetworkAccessManager( TomahawkUtils::nam() );
@@ -334,10 +309,9 @@ TomahawkApp::init()
     // A bug in Qt means the wheel_scroll_lines setting gets ignored and replaced
     // with the default value of 3 in QApplicationPrivate::initialize.
     {
-        QSettings qt_settings(QSettings::UserScope, "Trolltech");
-        qt_settings.beginGroup("Qt");
-        QApplication::setWheelScrollLines(
-            qt_settings.value("wheelScrollLines", QApplication::wheelScrollLines()).toInt());
+        QSettings qt_settings( QSettings::UserScope, "Trolltech" );
+        qt_settings.beginGroup( "Qt" );
+        QApplication::setWheelScrollLines( qt_settings.value( "wheelScrollLines", QApplication::wheelScrollLines() ).toInt() );
     }
 
 #ifndef ENABLE_HEADLESS
@@ -358,7 +332,7 @@ TomahawkApp::init()
 
 TomahawkApp::~TomahawkApp()
 {
-    tLog() << "Shutting down Tomahawk...";
+    tDebug( LOGVERBOSE ) << "Shutting down Tomahawk...";
 
     if ( !m_session.isNull() )
         delete m_session.data();
@@ -396,7 +370,7 @@ TomahawkApp::~TomahawkApp()
 
     delete TomahawkUtils::Cache::instance();
 
-    tLog() << "Finished shutdown.";
+    tDebug( LOGVERBOSE ) << "Finished shutdown.";
 }
 
 
@@ -410,26 +384,31 @@ TomahawkApp::instance()
 void
 TomahawkApp::printHelp()
 {
-    #define echo( X ) std::cout << QString( X ).toAscii().data()
+    #define echo( X ) std::cout << QString( X ).toLatin1().data() << "\n"
 
-    echo( "Usage: " + arguments().at( 0 ) + " [options] [url]\n" );
-    echo( "Options are:\n" );
-    echo( "  --help         Show this help\n" );
-    echo( "  --http         Initialize HTTP server\n" );
-    echo( "  --filescan     Scan files on startup\n" );
-    echo( "  --hide         Hide main window on startup\n" );
-    echo( "  --testdb       Use a test database instead of real collection\n" );
-    echo( "  --noupnp       Disable UPnP\n" );
-    echo( "  --nosip        Disable SIP\n" );
-    echo( "\nPlayback Controls:\n" );
-    echo( "  --playpause    Toggle playing/paused state\n" );
-    echo( "  --play         Start/resume playback\n" );
-    echo( "  --pause        Pause playback\n" );
-    echo( "  --stop         Stop playback\n" );
-    echo( "  --next         Advances to the next track (if available)\n" );
-    echo( "  --prev         Returns to the previous track (if available)\n" );
-    echo( "\nurl is a tomahawk:// command or alternatively a url that Tomahawk can recognize.\n" );
-    echo( "For more documentation, see http://wiki.tomahawk-player.org/mediawiki/index.php/Tomahawk://_Links\n" );
+    echo( "Usage: " + arguments().at( 0 ) + " [options] [url]" );
+    echo( "Options are:" );
+    echo( "  --help         Show this help" );
+//    echo( "  --http         Initialize HTTP server" );
+//    echo( "  --filescan     Scan files on startup" );
+//    echo( "  --headless     Run without a GUI" );
+    echo( "  --hide         Hide main window on startup" );
+    echo( "  --testdb       Use a test database instead of real collection" );
+    echo( "  --noupnp       Disable UPnP" );
+    echo( "  --nosip        Disable SIP" );
+    echo();
+    echo( "Playback Controls:" );
+    echo( "  --play         Start/resume playback" );
+    echo( "  --pause        Pause playback" );
+    echo( "  --playpause    Toggle playing/paused state" );
+    echo( "  --stop         Stop playback" );
+    echo( "  --prev         Returns to the previous track (if available)" );
+    echo( "  --next         Advances to the next track (if available)" );
+    echo( "  --voldown      Decrease the volume" );
+    echo( "  --volup        Increase the volume" );
+    echo();
+    echo( "url is a tomahawk:// command or alternatively a url that Tomahawk can recognize." );
+    echo( "For more documentation, see http://wiki.tomahawk-player.org/index.php/Tomahawk://_Links" );
 }
 
 
@@ -499,8 +478,6 @@ TomahawkApp::registerMetaTypes()
     qRegisterMetaType< Tomahawk::DynamicPlaylistRevision >("Tomahawk::DynamicPlaylistRevision");
     qRegisterMetaType< Tomahawk::QID >("Tomahawk::QID");
 
-    qRegisterMetaType< AudioErrorCode >("AudioErrorCode");
-
     qRegisterMetaType< Tomahawk::InfoSystem::InfoStringHash >( "Tomahawk::InfoSystem::InfoStringHash" );
     qRegisterMetaType< Tomahawk::InfoSystem::InfoType >( "Tomahawk::InfoSystem::InfoType" );
     qRegisterMetaType< Tomahawk::InfoSystem::PushInfoFlags >( "Tomahawk::InfoSystem::PushInfoFlags" );
@@ -539,7 +516,7 @@ TomahawkApp::initDatabase()
     }
 
     tDebug( LOGEXTRA ) << "Using database:" << dbpath;
-    m_database = QWeakPointer<Database>( new Database( dbpath, this ) );
+    m_database = QPointer<Database>( new Database( dbpath, this ) );
     Pipeline::instance()->databaseReady();
 }
 
@@ -563,8 +540,8 @@ TomahawkApp::initHTTP()
         return;
     }
 
-    m_session = QWeakPointer< QxtHttpSessionManager >( new QxtHttpSessionManager() );
-    m_connector = QWeakPointer< QxtHttpServerConnector >( new QxtHttpServerConnector );
+    m_session = QPointer< QxtHttpSessionManager >( new QxtHttpSessionManager() );
+    m_connector = QPointer< QxtHttpServerConnector >( new QxtHttpServerConnector );
     if ( m_session.isNull() || m_connector.isNull() )
     {
         if ( !m_session.isNull() )
@@ -729,7 +706,9 @@ TomahawkApp::notify( QObject *receiver, QEvent *e )
     catch ( const std::exception& e )
     {
         qWarning( "TomahawkApp::notify caught a std exception in a Qt event handler: " );
-        qFatal( e.what() );
+
+        // the second parameter surpresses a format-security warning
+        qFatal( e.what(), "" );
     }
     catch ( ... )
     {
@@ -747,7 +726,10 @@ TomahawkApp::instanceStarted( KDSingleApplicationGuard::Instance instance )
     const QStringList arguments = instance.arguments();
 
     if ( arguments.size() < 2 )
+    {
+        activate();
         return;
+    }
 
     QString arg1 = arguments[ 1 ];
     if ( loadUrl( arg1 ) )
@@ -768,4 +750,24 @@ TomahawkApp::instanceStarted( KDSingleApplicationGuard::Instance instance )
         AudioEngine::instance()->pause();
     else if ( arguments.contains( "--stop" ) )
         AudioEngine::instance()->stop();
+    else if ( arguments.contains( "--voldown" ) )
+        AudioEngine::instance()->lowerVolume();
+    else if ( arguments.contains( "--volup" ) )
+        AudioEngine::instance()->raiseVolume();
+    else
+        activate();
+}
+
+
+TomahawkWindow*
+TomahawkApp::mainWindow() const
+{
+    return m_mainwindow;
+}
+
+
+bool
+TomahawkApp::isTomahawkLoaded() const
+{
+    return m_loaded;
 }

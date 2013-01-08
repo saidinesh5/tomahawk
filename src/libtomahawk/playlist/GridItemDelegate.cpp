@@ -58,6 +58,8 @@ GridItemDelegate::GridItemDelegate( QAbstractItemView* parent, PlayableProxyMode
 
     connect( proxy, SIGNAL( rowsAboutToBeInserted( QModelIndex, int, int ) ), SLOT( modelChanged() ) );
     connect( proxy, SIGNAL( rowsAboutToBeRemoved( QModelIndex, int, int ) ), SLOT( modelChanged() ) );
+    connect( proxy->playlistInterface().data(), SIGNAL( currentIndexChanged() ), SLOT( onCurrentIndexChanged() ), Qt::UniqueConnection );
+
     connect( m_view, SIGNAL( scrolledContents( int, int ) ), SLOT( onViewChanged() ) );
     connect( m_view, SIGNAL( resized() ), SLOT( onViewChanged() ) );
 }
@@ -80,15 +82,12 @@ void
 GridItemDelegate::paint( QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index ) const
 {
     PlayableItem* item = m_model->sourceModel()->itemFromIndex( m_model->mapToSource( index ) );
-    if ( !item )
+    if ( !item || !index.isValid() )
         return;
 
     QStyleOptionViewItemV4 opt = option;
     initStyleOption( &opt, QModelIndex() );
     qApp->style()->drawControl( QStyle::CE_ItemViewItem, &opt, painter );
-
-    painter->save();
-    painter->setRenderHint( QPainter::Antialiasing );
 
     QRect r = option.rect;
     QString top, bottom;
@@ -103,11 +102,18 @@ GridItemDelegate::paint( QPainter* painter, const QStyleOptionViewItem& option, 
     {
         top = item->artist()->name();
     }
-    else
+    else if ( !item->query().isNull() )
     {
         top = item->query()->track();
         bottom = item->query()->artist();
     }
+    else
+    {
+        return;
+    }
+
+    painter->save();
+    painter->setRenderHint( QPainter::Antialiasing );
 
     if ( !m_covers.contains( index ) )
     {
@@ -138,7 +144,7 @@ GridItemDelegate::paint( QPainter* painter, const QStyleOptionViewItem& option, 
     qreal opacity = -1.;
     if ( m_hoverFaders.contains( index ) )
     {
-        const qreal pct = ( m_hoverFaders[ index ]->currentFrame() / 100. );
+        const qreal pct = ( m_hoverFaders[ index ]->currentFrame() / 100.0 );
         opacity = 0.35 - pct * 0.35;
     }
     else if ( m_hoverIndex == index )
@@ -146,50 +152,60 @@ GridItemDelegate::paint( QPainter* painter, const QStyleOptionViewItem& option, 
         opacity = 0.35;
     }
 
-    if ( opacity > -1. )
+    if ( opacity > -1.0 )
     {
         painter->save();
 
-        painter->setPen( QColor( 33, 33, 33 ) );
-        painter->setBrush( QColor( 33, 33, 33 ) );
+        painter->setPen( QColor( "dddddd" ) );
+        painter->setBrush( QColor( "#dddddd" ) );
         painter->setOpacity( opacity );
         painter->drawRect( r );
 
         painter->restore();
     }
 
-    painter->save();
-
-    painter->setPen( Qt::black );
-    painter->setBrush( Qt::black );
-    painter->setOpacity( 0.5 );
-    painter->drawRoundedRect( r.adjusted( 4, +r.height() - 36, -4, -4 ), 3, 3 );
-
-    painter->restore();
-
-    painter->setPen( opt.palette.color( QPalette::HighlightedText ) );
     QTextOption to;
     to.setWrapMode( QTextOption::NoWrap );
 
     QString text;
     QFont font = opt.font;
-    font.setPixelSize( 10 );
+    font.setPointSize( TomahawkUtils::defaultFontSize() );
     QFont boldFont = font;
     boldFont.setBold( true );
-    boldFont.setPixelSize( 14 );
+    boldFont.setPointSize( TomahawkUtils::defaultFontSize() + 1 );
 
-    QRect textRect = option.rect.adjusted( 6, option.rect.height() - 36, -4, -6 );
-    painter->setFont( font );
-    int bottomHeight = painter->fontMetrics().boundingRect( bottom ).height();
-    painter->setFont( boldFont );
-    int topHeight = painter->fontMetrics().boundingRect( top ).height();
+    int bottomHeight = QFontMetrics( font ).boundingRect( bottom ).height();
+    int topHeight = QFontMetrics( boldFont ).boundingRect( top ).height();
+    int frameHeight = bottomHeight + topHeight + 10;
 
+    QColor c1;
+    c1.setRgb( 0, 0, 0 );
+    c1.setAlphaF( 0.00 );
+    QColor c2;
+    c2.setRgb( 0, 0, 0 );
+    c2.setAlphaF( 0.88 );
+
+    QRect gradientRect = r.adjusted( 0, r.height() - frameHeight * 2, 0, 0 );
+    QLinearGradient gradient( QPointF( 0, 0 ), QPointF( 0, 1 ) );
+    gradient.setCoordinateMode( QGradient::ObjectBoundingMode );
+    gradient.setColorAt( 0.0, c1 );
+    gradient.setColorAt( 0.6, c2 );
+    gradient.setColorAt( 1.0, c2 );
+
+    painter->save();
+    painter->setPen( Qt::transparent );
+    painter->setBrush( gradient );
+    painter->drawRect( gradientRect );
+    painter->restore();
+
+    painter->setPen( TomahawkUtils::Colors::SELECTION_FOREGROUND );
+
+    QRect textRect = option.rect.adjusted( 6, option.rect.height() - frameHeight, -6, -6 );
     bool oneLiner = false;
     if ( bottom.isEmpty() )
         oneLiner = true;
-    else
-        oneLiner = ( textRect.height() < topHeight + bottomHeight );
 
+    painter->setFont( boldFont );
     if ( oneLiner )
     {
         to.setAlignment( Qt::AlignHCenter | Qt::AlignVCenter );
@@ -209,8 +225,8 @@ GridItemDelegate::paint( QPainter* painter, const QStyleOptionViewItem& option, 
         r.adjust( 4, 0, -4, -1 );
         if ( m_hoveringOver == index )
         {
-            TomahawkUtils::drawQueryBackground( painter, opt.palette, r, 1.1 );
-            painter->setPen( opt.palette.color( QPalette::HighlightedText ) );
+            TomahawkUtils::drawQueryBackground( painter, r );
+            painter->setPen( TomahawkUtils::Colors::SELECTION_FOREGROUND );
         }
 
         to.setAlignment( Qt::AlignHCenter | Qt::AlignBottom );
@@ -229,9 +245,7 @@ void
 GridItemDelegate::onPlayClicked( const QPersistentModelIndex& index )
 {
     QPoint pos = m_playButton[ index ]->pos();
-    foreach ( ImageButton* button, m_playButton )
-        button->deleteLater();
-    m_playButton.clear();
+    clearButtons();
 
     AnimatedSpinner* spinner = new AnimatedSpinner( m_view );
     spinner->setAutoCenter( false );
@@ -245,23 +259,8 @@ GridItemDelegate::onPlayClicked( const QPersistentModelIndex& index )
     PlayableItem* item = m_model->sourceModel()->itemFromIndex( m_model->mapToSource( index ) );
     if ( item )
     {
-        NewClosure( AudioEngine::instance(), SIGNAL( loading( Tomahawk::result_ptr ) ),
-                    const_cast<GridItemDelegate*>(this), SLOT( onPlaybackStarted( QPersistentModelIndex ) ), QPersistentModelIndex( index ) );
-
-        m_closures.remove( index );
-
-        m_closures.insertMulti( index, NewClosure( AudioEngine::instance(), SIGNAL( started( Tomahawk::result_ptr ) ),
-                                                   const_cast<GridItemDelegate*>(this), SLOT( onPlaylistChanged( QPersistentModelIndex ) ), QPersistentModelIndex( index ) ) );
-        m_closures.insertMulti( index, NewClosure( AudioEngine::instance(), SIGNAL( stopped() ),
-                                       const_cast<GridItemDelegate*>(this), SLOT( onPlaylistChanged( QPersistentModelIndex ) ), QPersistentModelIndex( index ) ) );
-
-        foreach ( _detail::Closure* closure, m_closures.values( index ) )
-            closure->setAutoDelete( false );
-
-        connect( AudioEngine::instance(), SIGNAL( stopped() ), SLOT( onPlaybackFinished() ) );
-
         if ( !item->query().isNull() )
-            AudioEngine::instance()->playItem( Tomahawk::playlistinterface_ptr(), item->query() );
+            AudioEngine::instance()->playItem( m_model->playlistInterface(), item->query() );
         else if ( !item->album().isNull() )
             AudioEngine::instance()->playItem( item->album() );
         else if ( !item->artist().isNull() )
@@ -310,8 +309,8 @@ GridItemDelegate::editorEvent( QEvent* event, QAbstractItemModel* model, const Q
             m_playButton.clear();
 
             ImageButton* button = new ImageButton( m_view );
-            button->setPixmap( RESPATH "images/play-rest.png" );
-            button->setPixmap( RESPATH "images/play-pressed.png", QIcon::Off, QIcon::Active );
+            button->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::PlayButton, TomahawkUtils::Original, QSize( 48, 48 ) ) );
+            button->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::PlayButtonPressed, TomahawkUtils::Original, QSize( 48, 48 ) ), QIcon::Off, QIcon::Active );
             button->setFixedSize( 48, 48 );
             button->move( option.rect.center() - QPoint( 23, 23 ) );
             button->setContentsMargins( 0, 0, 0, 0 );
@@ -408,18 +407,12 @@ GridItemDelegate::modelChanged()
     m_hoveringOver = QPersistentModelIndex();
     m_hoverIndex = QPersistentModelIndex();
 
-    foreach ( ImageButton* button, m_playButton )
-        button->deleteLater();
-    m_playButton.clear();
-    foreach ( ImageButton* button, m_pauseButton )
-        button->deleteLater();
-    m_pauseButton.clear();
-    foreach ( QWidget* widget, m_spinner )
-        widget->deleteLater();
-    m_spinner.clear();
+    clearButtons();
 
     if ( GridView* view = qobject_cast< GridView* >( m_view ) )
         m_model = view->proxyModel();
+
+    connect( m_model->playlistInterface().data(), SIGNAL( currentIndexChanged() ), SLOT( onCurrentIndexChanged() ), Qt::UniqueConnection );
 }
 
 
@@ -456,78 +449,58 @@ GridItemDelegate::onViewChanged()
 void
 GridItemDelegate::onPlaybackFinished()
 {
-    foreach ( ImageButton* button, m_pauseButton )
-        button->deleteLater();
-    m_pauseButton.clear();
+    clearButtons();
 
     emit stoppedPlaying( QModelIndex() );
 }
 
 
 void
-GridItemDelegate::onPlaylistChanged( const QPersistentModelIndex& index )
+GridItemDelegate::onPlaybackStarted( const QPersistentModelIndex& index )
 {
-    PlayableItem* item = m_model->sourceModel()->itemFromIndex( m_model->mapToSource( index ) );
-    if ( item )
-    {
-        bool finished = false;
+    clearButtons();
+    createPauseButton( index );
 
-        if ( !item->query().isNull() )
-        {
-            if ( !item->query()->numResults() || AudioEngine::instance()->currentTrack() != item->query()->results().first() )
-                finished = true;
-        }
-        else if ( !item->album().isNull() )
-        {
-            if ( AudioEngine::instance()->currentTrackPlaylist() != item->album()->playlistInterface( Tomahawk::Mixed ) )
-                finished = true;
-        }
-        else if ( !item->artist().isNull() )
-        {
-            if ( AudioEngine::instance()->currentTrackPlaylist() != item->artist()->playlistInterface( Tomahawk::Mixed ) )
-                finished = true;
-        }
-
-        if ( finished )
-        {
-            foreach ( _detail::Closure* closure, m_closures.values( index ) )
-                closure->deleteLater();
-
-            if ( m_pauseButton.contains( index ) )
-            {
-                m_pauseButton[ index ]->deleteLater();
-                m_pauseButton.remove( index );
-            }
-            if ( m_spinner.contains( index ) )
-            {
-                m_spinner[ index ]->deleteLater();
-                m_spinner.remove( index );
-            }
-
-            emit stoppedPlaying( index );
-        }
-    }
+    emit startedPlaying( index );
 }
 
 
 void
-GridItemDelegate::onPlaybackStarted( const QPersistentModelIndex& index )
+GridItemDelegate::clearButtons()
 {
-    if ( !m_spinner.contains( index ) )
-        return;
-
-    QPoint pos = m_spinner[ index ]->pos();
-    foreach ( QWidget* widget, m_spinner.values() )
-    {
-        delete widget;
-    }
+    foreach ( ImageButton* button, m_playButton )
+        button->deleteLater();
+    m_playButton.clear();
+    foreach ( ImageButton* button, m_pauseButton )
+        button->deleteLater();
+    m_pauseButton.clear();
+    foreach ( QWidget* widget, m_spinner )
+        widget->deleteLater();
     m_spinner.clear();
+}
 
+
+void
+GridItemDelegate::onCurrentIndexChanged()
+{
+    tDebug() << Q_FUNC_INFO << m_model-> currentIndex();
+    if ( m_model->currentIndex().isValid() )
+    {
+        onPlaybackStarted( m_model->currentIndex() );
+    }
+    else
+        onPlaybackFinished();
+}
+
+
+void
+GridItemDelegate::createPauseButton( const QPersistentModelIndex& index )
+{
     ImageButton* button = new ImageButton( m_view );
-    button->setPixmap( RESPATH "images/pause-rest.png" );
-    button->setPixmap( RESPATH "images/pause-pressed.png", QIcon::Off, QIcon::Active );
+    button->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::PauseButton, TomahawkUtils::Original, QSize( 48, 48 ) ) );
+    button->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::PauseButtonPressed, TomahawkUtils::Original, QSize( 48, 48 ) ), QIcon::Off, QIcon::Active );
     button->setFixedSize( 48, 48 );
-    button->move( pos );
+    button->move( m_view->visualRect( index ).center() - QPoint( 23, 23 ) );
     button->setContentsMargins( 0, 0, 0, 0 );
     button->setFocusPolicy( Qt::NoFocus );
     button->installEventFilter( this );
@@ -536,8 +509,6 @@ GridItemDelegate::onPlaybackStarted( const QPersistentModelIndex& index )
     connect( button, SIGNAL( clicked( bool ) ), AudioEngine::instance(), SLOT( playPause() ) );
 
     m_pauseButton[ index ] = button;
-
-    emit startedPlaying( index );
 }
 
 

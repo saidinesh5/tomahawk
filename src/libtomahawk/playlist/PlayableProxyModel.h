@@ -20,7 +20,7 @@
 #ifndef TRACKPROXYMODEL_H
 #define TRACKPROXYMODEL_H
 
-#include <QtGui/QSortFilterProxyModel>
+#include <QSortFilterProxyModel>
 
 #include "PlaylistInterface.h"
 #include "playlist/PlayableModel.h"
@@ -41,6 +41,8 @@ public:
     explicit PlayableProxyModel ( QObject* parent = 0 );
     virtual ~PlayableProxyModel() {}
 
+    virtual QString guid() const;
+
     virtual PlayableModel* sourceModel() const { return m_model; }
     virtual void setSourcePlayableModel( PlayableModel* sourceModel );
     virtual void setSourceModel( QAbstractItemModel* model );
@@ -51,7 +53,7 @@ public:
     void setStyle( PlayableProxyModel::PlayableItemStyle style ) { m_style = style; }
 
     virtual QPersistentModelIndex currentIndex() const { return mapFromSource( m_model->currentItem() ); }
-    virtual void setCurrentIndex( const QModelIndex& index ) { m_model->setCurrentItem( mapToSource( index ) ); }
+    virtual void setCurrentIndex( const QModelIndex& index );
 
     virtual void removeIndex( const QModelIndex& index );
     virtual void removeIndexes( const QModelIndexList& indexes );
@@ -67,8 +69,11 @@ public:
     virtual void setMaxVisibleItems( int items );
 
     virtual PlayableItem* itemFromIndex( const QModelIndex& index ) const { return sourceModel()->itemFromIndex( index ); }
+    virtual PlayableItem* itemFromQuery( const Tomahawk::query_ptr& query ) const { return sourceModel()->itemFromQuery( query ); }
+    virtual PlayableItem* itemFromResult( const Tomahawk::result_ptr& result ) const { return sourceModel()->itemFromResult( result ); }
 
-    virtual Tomahawk::playlistinterface_ptr playlistInterface();
+    virtual Tomahawk::playlistinterface_ptr playlistInterface() const;
+    void setPlaylistInterface( const Tomahawk::playlistinterface_ptr& playlistInterface );
 
     QList< double > columnWeights() const;
 
@@ -88,11 +93,21 @@ signals:
     void loadingStarted();
     void loadingFinished();
 
+    void indexPlayable( const QModelIndex& index );
+    void indexResolved( const QModelIndex& index );
+    void currentIndexChanged();
+
+    void itemCountChanged( unsigned int items );
+
 protected:
     virtual bool filterAcceptsRow( int sourceRow, const QModelIndex& sourceParent ) const;
     virtual bool lessThan( const QModelIndex& left, const QModelIndex& right ) const;
 
     Tomahawk::playlistinterface_ptr m_playlistInterface;
+
+private slots:
+    void onIndexPlayable( const QModelIndex& index );
+    void onIndexResolved( const QModelIndex& index );
 
 private:
     virtual bool lessThan( int column, const Tomahawk::query_ptr& left, const Tomahawk::query_ptr& right ) const;

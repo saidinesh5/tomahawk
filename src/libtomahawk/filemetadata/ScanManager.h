@@ -27,7 +27,7 @@
 #include <QtCore/QMap>
 #include <QtCore/QObject>
 #include <QtCore/QStringList>
-#include <QtCore/QWeakPointer>
+#include <QtCore/QPointer>
 #include <QtCore/QSet>
 
 class MusicScanner;
@@ -42,7 +42,7 @@ Q_OBJECT
 public:
     enum ScanMode { DirScan, FileScan };
     enum ScanType { None, Full, Normal, File };
-    
+
     static ScanManager* instance();
 
     explicit ScanManager( QObject* parent = 0 );
@@ -52,7 +52,7 @@ signals:
     void finished();
 
 public slots:
-    void runFileScan( const QStringList &paths = QStringList() );
+    void runFileScan( const QStringList& paths = QStringList(), bool updateGUI = true );
     void runFullRescan();
     void runNormalScan( bool manualFull = false );
 
@@ -72,13 +72,15 @@ private:
     static ScanManager* s_instance;
 
     ScanMode m_currScanMode;
-    QWeakPointer< MusicScanner > m_scanner;
+    QPointer< MusicScanner > m_scanner;
     QThread* m_musicScannerThreadController;
     QSet< QString > m_currScannerPaths;
     QStringList m_cachedScannerDirs;
 
     QTimer* m_scanTimer;
     ScanType m_queuedScanType;
+
+    bool m_updateGUI;
 };
 
 #endif

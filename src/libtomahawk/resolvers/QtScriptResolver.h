@@ -25,11 +25,11 @@
 #include "utils/TomahawkUtils.h"
 #include "config.h"
 
-#include <QtCore/QDir>
-#include <QtCore/QFile>
-#include <QtCore/QThread>
-#include <QtWebKit/QWebPage>
-#include <QtWebKit/QWebFrame>
+#include <QDir>
+#include <QFile>
+#include <QThread>
+#include <QWebPage>
+#include <QWebFrame>
 
 #ifdef QCA2_FOUND
 #include <QtCrypto>
@@ -130,6 +130,7 @@ public:
     static ExternalResolver* factory( const QString& scriptPath );
 
     virtual QString name() const         { return m_name; }
+    virtual QPixmap icon() const         { return m_icon; }
     virtual unsigned int weight() const  { return m_weight; }
     virtual unsigned int timeout() const { return m_timeout; }
 
@@ -140,6 +141,7 @@ public:
     virtual bool running() const;
     virtual void reload();
 
+    virtual void setIcon( const QPixmap& icon ) { m_icon = icon; }
 public slots:
     virtual void resolve( const Tomahawk::query_ptr& query );
     virtual void stop();
@@ -152,7 +154,6 @@ private:
     void init();
 
     void loadUi();
-    QWidget* findWidget( QWidget* widget, const QString& objectName );
     void setWidgetData( const QVariant& value, QWidget* widget, const QString& property );
     QVariant widgetData( QWidget* widget, const QString& property );
     QVariantMap loadDataFromWidgets();
@@ -168,13 +169,14 @@ private:
     ScriptEngine* m_engine;
 
     QString m_name;
+    QPixmap m_icon;
     unsigned int m_weight, m_timeout;
 
     bool m_ready, m_stopped;
     ExternalResolver::ErrorState m_error;
 
     QtScriptResolverHelper* m_resolverHelper;
-    QWeakPointer< QWidget > m_configWidget;
+    QPointer< QWidget > m_configWidget;
     QList< QVariant > m_dataWidgets;
 };
 

@@ -19,21 +19,18 @@
 
 #include "TomahawkTrayIcon.h"
 
-#include <QtGui/QWheelEvent>
-
 #include "Artist.h"
-
 #include "audio/AudioEngine.h"
 #include "TomahawkApp.h"
 #include "TomahawkWindow.h"
 #include "Query.h"
 #include "Source.h"
 #include "Collection.h"
-
+#include "ActionCollection.h"
 #include "utils/Logger.h"
 #include "utils/TomahawkUtilsGui.h"
-#include <ActionCollection.h>
 
+#include <QWheelEvent>
 
 TomahawkTrayIcon::TomahawkTrayIcon( QObject* parent )
     : QSystemTrayIcon( parent )
@@ -318,7 +315,7 @@ void
 TomahawkTrayIcon::onSocialActionsLoaded()
 {
     m_loveTrackAction->setText( tr( "&Love" ) );
-    m_loveTrackAction->setIcon( QIcon( RESPATH "images/loved.png" ) );
+    m_loveTrackAction->setIcon( QIcon( RESPATH "images/loved.svg" ) );
 
     if ( !m_currentTrack )
         return;
@@ -326,7 +323,7 @@ TomahawkTrayIcon::onSocialActionsLoaded()
     if ( m_currentTrack->toQuery()->loved() )
     {
         m_loveTrackAction->setText( tr( "Un-&Love" ) );
-        m_loveTrackAction->setIcon( QIcon( RESPATH "images/not-loved.png" ) );
+        m_loveTrackAction->setIcon( QIcon( RESPATH "images/not-loved.svg" ) );
     }
 }
 

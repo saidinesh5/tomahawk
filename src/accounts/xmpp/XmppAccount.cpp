@@ -23,7 +23,7 @@
 #include "sip/SipPlugin.h"
 #include "XmppInfoPlugin.h"
 
-#include <QtCore/QtPlugin>
+#include <QtPlugin>
 
 namespace Tomahawk
 {
@@ -44,13 +44,24 @@ XmppAccount::XmppAccount( const QString &accountId )
     setAccountServiceName( "Jabber (XMPP)" );
     setTypes( SipType );
 
-    m_configWidget = QWeakPointer< QWidget >( new XmppConfigWidget( this, 0 ) );
+    m_configWidget = QPointer< QWidget >( new XmppConfigWidget( this, 0 ) );
+
+    m_onlinePixmap = QPixmap( ":/xmpp-icon.png" );
+    m_offlinePixmap = QPixmap( ":/xmpp-offline-icon.png" );
 }
 
 
 XmppAccount::~XmppAccount()
 {
     delete m_xmppSipPlugin.data();
+}
+
+QPixmap
+XmppAccount::icon() const
+{
+    if ( connectionState() == Connected )
+        return m_onlinePixmap;
+    return m_offlinePixmap;
 }
 
 
@@ -79,6 +90,9 @@ XmppAccount::isAuthenticated() const
 Account::ConnectionState
 XmppAccount::connectionState() const
 {
+    if ( m_xmppSipPlugin.isNull() )
+        return Account::Disconnected;
+
     return m_xmppSipPlugin.data()->connectionState();
 }
 
@@ -105,7 +119,7 @@ XmppAccount::sipPlugin()
 {
     if ( m_xmppSipPlugin.isNull() )
     {
-        m_xmppSipPlugin = QWeakPointer< XmppSipPlugin >( new XmppSipPlugin( this ) );
+        m_xmppSipPlugin = QPointer< XmppSipPlugin >( new XmppSipPlugin( this ) );
 
         connect( m_xmppSipPlugin.data(), SIGNAL( stateChanged( Tomahawk::Accounts::Account::ConnectionState ) ), this, SIGNAL( connectionStateChanged( Tomahawk::Accounts::Account::ConnectionState ) ) );
         connect( m_xmppSipPlugin.data(), SIGNAL( error( int, QString ) ), this, SIGNAL( error( int, QString ) ) );

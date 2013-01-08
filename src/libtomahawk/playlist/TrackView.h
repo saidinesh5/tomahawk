@@ -20,15 +20,15 @@
 #ifndef TRACKVIEW_H
 #define TRACKVIEW_H
 
-#include <QtGui/QTreeView>
-#include <QtGui/QSortFilterProxyModel>
-#include <QtCore/QTimer>
-
 #include "ContextMenu.h"
 #include "PlaylistItemDelegate.h"
 #include "ViewPage.h"
 
 #include "DllMacro.h"
+
+#include <QTreeView>
+#include <QSortFilterProxyModel>
+#include <QTimer>
 
 class QAction;
 class AnimatedSpinner;
@@ -45,9 +45,10 @@ public:
     explicit TrackView( QWidget* parent = 0 );
     ~TrackView();
 
-    virtual QString guid() const { return m_guid; }
-    virtual void setGuid( const QString& guid );
+    virtual QString guid() const;
+    virtual void setGuid( const QString& newguid );
 
+    virtual void setPlaylistItemDelegate( PlaylistItemDelegate* delegate );
     virtual void setPlayableModel( PlayableModel* model );
     virtual void setModel( QAbstractItemModel* model );
     void setProxyModel( PlayableProxyModel* model );
@@ -64,6 +65,7 @@ public:
 
     virtual QWidget* widget() { return this; }
     virtual Tomahawk::playlistinterface_ptr playlistInterface() const;
+    void setPlaylistInterface( const Tomahawk::playlistinterface_ptr& playlistInterface );
 
     virtual QString title() const;
     virtual QString description() const;
@@ -80,11 +82,16 @@ public:
     bool updatesContextView() const { return m_updateContextView; }
     void setUpdatesContextView( bool b ) { m_updateContextView = b; }
 
+    bool autoResize() const { return m_autoResize; }
+    void setAutoResize( bool b );
+
     // Starts playing from the beginning if resolved, or waits until a track is playable
     void startPlayingFromStart();
 
 public slots:
     virtual void onItemActivated( const QModelIndex& index );
+
+    void deleteSelectedItems();
 
     void playItem();
     void onMenuTriggered( int action );
@@ -121,8 +128,10 @@ private slots:
 
     void onCustomContextMenu( const QPoint& pos );
 
-    void autoPlayResolveFinished( const Tomahawk::query_ptr& query, int row  );
+    void autoPlayResolveFinished( const Tomahawk::query_ptr& query, int row );
 
+    void verifySize();
+    
 private:
     void startAutoPlay( const QModelIndex& index );
     bool tryToPlayItem( const QModelIndex& index );
@@ -142,6 +151,7 @@ private:
     QRect m_dropRect;
 
     bool m_updateContextView;
+    bool m_autoResize;
 
     QModelIndex m_hoveredIndex;
     QModelIndex m_contextMenuIndex;

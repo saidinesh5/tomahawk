@@ -27,17 +27,18 @@
 
 #include "network/Servent.h"
 
-#include "utils/TomahawkUtils.h"
+#include "utils/TomahawkUtilsGui.h"
 #include "utils/Logger.h"
 
+#include "config.h"
 
-#include <QtGui/QMessageBox>
+#include <QMessageBox>
+#include <QNetworkRequest>
+#include <QNetworkReply>
+#include <QMetaProperty>
+#include <QCryptographicHash>
 
-#include <QtNetwork/QNetworkRequest>
-#include <QtNetwork/QNetworkReply>
-
-#include <QtCore/QMetaProperty>
-#include <QtCore/QCryptographicHash>
+#include <boost/bind.hpp>
 
 // FIXME: bloody hack, remove this for 0.3
 // this one adds new functionality to old resolvers
@@ -213,7 +214,7 @@ void
 ScriptEngine::javaScriptConsoleMessage( const QString& message, int lineNumber, const QString& sourceID )
 {
     tLog() << "JAVASCRIPT:" << m_scriptPath << message << lineNumber << sourceID;
-#ifndef QT_NO_DEBUG
+#ifndef DEBUG_BUILD
     QMessageBox::critical( 0, "Script Resolver Error", QString( "%1 %2 %3 %4" ).arg( m_scriptPath ).arg( message ).arg( lineNumber ).arg( sourceID ) );
 #endif
 }
@@ -230,6 +231,9 @@ QtScriptResolver::QtScriptResolver( const QString& scriptPath )
 
     m_engine = new ScriptEngine( this );
     m_name = QFileInfo( filePath() ).baseName();
+
+    // set the icon, if we launch properly we'll get the icon the resolver reports
+    m_icon = TomahawkUtils::defaultPixmap( TomahawkUtils::DefaultResolver, TomahawkUtils::Original, QSize( 128, 128 ) );
 
     if ( !QFile::exists( filePath() ) )
     {
@@ -322,13 +326,36 @@ QtScriptResolver::init()
     m_name    = m.value( "name" ).toString();
     m_weight  = m.value( "weight", 0 ).toUInt();
     m_timeout = m.value( "timeout", 25 ).toUInt() * 1000;
+    bool compressed = m.value( "compressed", "false" ).toString() == "true";
+
+    QByteArray icoData = m.value( "icon" ).toByteArray();
+    if( compressed )
+        icoData = qUncompress( QByteArray::fromBase64( icoData ) );
+    else
+        icoData = QByteArray::fromBase64( icoData );
+    QPixmap ico;
+    ico.loadFromData( icoData );
+
+    bool success = false;
+    if ( !ico.isNull() )
+    {
+        m_icon = ico.scaled( m_icon.size(), Qt::IgnoreAspectRatio );
+        success = true;
+    }
+    // see if the resolver sent an icon path to not break the old (unofficial) api.
+    // TODO: remove this and publish a definitive api
+    if ( !success )
+    {
+        QString iconPath = QFileInfo( filePath() ).path() + "/" + m.value( "icon" ).toString();
+        success = m_icon.load( iconPath );
+    }
 
     // load config widget and apply settings
     loadUi();
     QVariantMap config = resolverUserConfig();
     fillDataInWidgets( config );
 
-    qDebug() << "JS" << filePath() << "READY," << "name" << m_name << "weight" << m_weight << "timeout" << m_timeout;
+    qDebug() << "JS" << filePath() << "READY," << "name" << m_name << "weight" << m_weight << "timeout" << m_timeout << "icon received" << success;
 
     m_ready = true;
 }
@@ -411,6 +438,11 @@ QtScriptResolver::parseResultVariantList( const QVariantList& reslist )
         if ( m.value( "artist" ).toString().trimmed().isEmpty() || m.value( "track" ).toString().trimmed().isEmpty() )
             continue;
 
+        // TODO we need to handle preview urls separately. they should never trump a real url, and we need to display
+        // the purchaseUrl for the user to upgrade to a full stream.
+        if ( m.value( "preview" ).toBool() == true )
+            continue;
+
         Tomahawk::result_ptr rp = Tomahawk::Result::get( m.value( "url" ).toString() );
         Tomahawk::artist_ptr ap = Tomahawk::Artist::get( m.value( "artist" ).toString(), false );
         rp->setArtist( ap );
@@ -421,6 +453,8 @@ QtScriptResolver::parseResultVariantList( const QVariantList& reslist )
         rp->setSize( m.value( "size" ).toUInt() );
         rp->setRID( uuid() );
         rp->setFriendlySource( name() );
+        rp->setPurchaseUrl( m.value( "purchaseUrl" ).toString() );
+        rp->setLinkUrl( m.value( "linkUrl" ).toString() );
         rp->setScore( m.value( "score" ).toFloat() );
         rp->setDiscNumber( m.value( "discnumber" ).toUInt() );
 
@@ -489,7 +523,7 @@ QtScriptResolver::loadUi()
     if( m.contains( "images" ) )
         uiData = fixDataImagePaths( uiData, compressed, images );
 
-    m_configWidget = QWeakPointer< QWidget >( widgetFromData( uiData, 0 ) );
+    m_configWidget = QPointer< QWidget >( widgetFromData( uiData, 0 ) );
 
     emit changed();
 }
@@ -513,28 +547,6 @@ QtScriptResolver::saveConfig()
 
     m_resolverHelper->setResolverConfig( saveData.toMap() );
     m_engine->mainFrame()->evaluateJavaScript( RESOLVER_LEGACY_CODE "resolver.saveUserConfig();" );
-}
-
-
-QWidget*
-QtScriptResolver::findWidget(QWidget* widget, const QString& objectName)
-{
-    if( !widget || !widget->isWidgetType() )
-        return 0;
-
-    if( widget->objectName() == objectName )
-        return widget;
-
-
-    foreach( QObject* child, widget->children() )
-    {
-        QWidget* found = findWidget(qobject_cast< QWidget* >( child ), objectName);
-
-        if( found )
-            return found;
-    }
-
-    return 0;
 }
 
 
@@ -576,7 +588,7 @@ QtScriptResolver::loadDataFromWidgets()
         QVariantMap data = dataWidget.toMap();
 
         QString widgetName = data["widget"].toString();
-        QWidget* widget= findWidget( m_configWidget.data(), widgetName );
+        QWidget* widget= m_configWidget.data()->findChild<QWidget*>( widgetName );
 
         QVariant value = widgetData( widget, data["property"].toString() );
 
@@ -593,7 +605,7 @@ QtScriptResolver::fillDataInWidgets( const QVariantMap& data )
     foreach(const QVariant& dataWidget, m_dataWidgets)
     {
         QString widgetName = dataWidget.toMap()["widget"].toString();
-        QWidget* widget= findWidget( m_configWidget.data(), widgetName );
+        QWidget* widget= m_configWidget.data()->findChild<QWidget*>( widgetName );
         if( !widget )
         {
             tLog() << Q_FUNC_INFO << "Widget specified in resolver was not found:" << widgetName;

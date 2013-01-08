@@ -22,12 +22,12 @@
 
 #include "accounts/twitter/TwitterAccount.h"
 
-#include <QTweetLib/qtweetaccountverifycredentials.h>
-#include <QTweetLib/qtweetstatusupdate.h>
-
 #include "GlobalActionManager.h"
 #include "utils/Logger.h"
 #include "Source.h"
+
+#include <QTweetLib/qtweetaccountverifycredentials.h>
+#include <QTweetLib/qtweetstatusupdate.h>
 
 namespace Tomahawk
 {
@@ -82,7 +82,7 @@ TwitterInfoPlugin::refreshTwitterAuth()
 
     Q_ASSERT( TomahawkUtils::nam() != 0 );
     tDebug() << Q_FUNC_INFO << "with nam" << TomahawkUtils::nam() << this;
-    m_twitterAuth = QWeakPointer< TomahawkOAuthTwitter >( new TomahawkOAuthTwitter( TomahawkUtils::nam(), this ) );
+    m_twitterAuth = QPointer< TomahawkOAuthTwitter >( new TomahawkOAuthTwitter( TomahawkUtils::nam(), this ) );
 
     if ( m_twitterAuth.isNull() )
       return false;

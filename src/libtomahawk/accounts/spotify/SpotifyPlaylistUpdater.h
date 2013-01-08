@@ -49,7 +49,6 @@ public:
 
 #ifndef ENABLE_HEADLESS
     virtual QWidget* configurationWidget() const { return 0; }
-
     virtual QPixmap typeIcon() const;
 #endif
 
@@ -62,6 +61,14 @@ public:
     void setSubscribedStatus( bool subscribed );
     bool canSubscribe() const;
     void setCanSubscribe( bool canSub );
+    void setSubscribers( int numSubscribers );
+    int subscribers() const { return m_subscribers; }
+    // Collaborative actions
+    void setOwner( bool owner );
+    bool owner() const;
+    bool collaborative() const;
+    void setCollaborative( bool collaborative );
+
     QString spotifyId() const { return m_spotifyId; }
 
     virtual bool hasCustomDeleter() const { return true; }
@@ -102,7 +109,7 @@ private:
     static QVariant queryToVariant( const Tomahawk::query_ptr& query );
     static QList< Tomahawk::query_ptr > variantToQueries( const QVariantList& list );
 
-    QWeakPointer<Tomahawk::Accounts::SpotifyAccount> m_spotify;
+    QPointer<Tomahawk::Accounts::SpotifyAccount> m_spotify;
     QString m_latestRev, m_spotifyId;
     QList< Tomahawk::plentry_ptr > m_waitingForIds;
 
@@ -110,6 +117,10 @@ private:
     bool m_sync;
     bool m_subscribed;
     bool m_canSubscribe;
+    bool m_isOwner;
+    bool m_collaborative;
+    int m_subscribers;
+
     QQueue<_detail::Closure*> m_queuedOps;
 #ifndef ENABLE_HEADLESS
     static QPixmap* s_typePixmap;
@@ -126,7 +137,7 @@ public:
     virtual QString type() const { return "spotify"; }
 
 private:
-    QWeakPointer<Tomahawk::Accounts::SpotifyAccount> m_account;
+    QPointer<Tomahawk::Accounts::SpotifyAccount> m_account;
 };
 
 #endif // SPOTIFYPLAYLISTUPDATER_H

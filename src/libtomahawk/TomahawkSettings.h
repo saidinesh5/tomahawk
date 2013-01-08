@@ -28,7 +28,7 @@
 #include <QtNetwork/QNetworkProxy>
 #include <QStringList>
 
-#define TOMAHAWK_SETTINGS_VERSION 12
+#define TOMAHAWK_SETTINGS_VERSION 13
 
 /**
  * Convenience wrapper around QSettings for tomahawk-specific config
@@ -75,6 +75,9 @@ public:
 
     bool verboseNotifications() const;
     void setVerboseNotifications( bool notifications );
+
+    bool menuBarVisible() const;
+    void setMenuBarVisible( bool visible );
 
     // Collection Stuff
     bool showOfflineSources() const;
@@ -135,6 +138,9 @@ public:
 
     bool crashReporterEnabled() const; /// true by default
     void setCrashReporterEnabled( bool enable );
+
+    bool songChangeNotificationEnabled() const; /// true by default
+    void setSongChangeNotificationEnabled( bool enable );
 
     QString externalHostname() const;
     void setExternalHostname( const QString& externalHostname );
@@ -207,6 +213,10 @@ public:
     void setPlaylistUpdaters( const Tomahawk::SerializedUpdaters& updaters );
 
     static void registerCustomSettingsHandlers();
+
+    // Charts
+    void setLastChartIds( const QMap<QString, QVariant>& ids );
+    QMap<QString, QVariant> lastChartIds();
 
 signals:
     void changed();

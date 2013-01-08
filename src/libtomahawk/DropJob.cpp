@@ -30,6 +30,8 @@
 #include "utils/RdioParser.h"
 #include "utils/M3uLoader.h"
 #include "utils/ShortenedLinkParser.h"
+#include "utils/SoundcloudParser.h"
+#include "utils/ExfmParser.h"
 #include "utils/Logger.h"
 #include "utils/TomahawkUtils.h"
 #include "GlobalActionManager.h"
@@ -128,6 +130,12 @@ DropJob::acceptsMimeData( const QMimeData* data, DropJob::DropTypes acceptedType
         if ( url.contains( "spotify" ) && url.contains( "playlist" ) && s_canParseSpotifyPlaylists )
             return true;
 
+        if( url.contains( "soundcloud" ) && url.contains( "sets" ) )
+            return true;
+
+        if( url.contains( "ex.fm" ) && !url.contains( "/song/" ) ) // We treat everything but song as playlist
+            return true;
+
         if ( url.contains( "grooveshark.com" ) && url.contains( "playlist" ) )
             return true;
     }
@@ -146,6 +154,12 @@ DropJob::acceptsMimeData( const QMimeData* data, DropJob::DropTypes acceptedType
         if ( url.contains( "spotify" ) && url.contains( "track" ) )
             return true;
 
+        if ( url.contains( "ex.fm" ) && url.contains( "/song/" ) )
+            return true;
+
+        if( url.contains( "soundcloud" ) )
+            return true;
+
         if ( url.contains( "rdio.com" ) && ( ( ( url.contains( "track" ) && url.contains( "artist" ) && url.contains( "album" ) )
                                                || url.contains( "playlists" )  ) ) )
             return true;
@@ -159,6 +173,8 @@ DropJob::acceptsMimeData( const QMimeData* data, DropJob::DropTypes acceptedType
             return true;
         if ( url.contains( "rdio.com" ) && ( url.contains( "artist" ) && url.contains( "album" ) && !url.contains( "track" ) )  )
             return true;
+        if ( url.contains( "ex.fm" ) && url.contains( "site" ) && url.contains( "album" ) )
+            return true;
     }
 
     if ( acceptedType.testFlag( Artist ) )
@@ -168,6 +184,8 @@ DropJob::acceptsMimeData( const QMimeData* data, DropJob::DropTypes acceptedType
         if ( url.contains( "spotify" ) && url.contains( "artist" ) )
             return true;
         if ( url.contains( "rdio.com" ) && ( url.contains( "artist" ) && !url.contains( "album" ) && !url.contains( "track" ) )  )
+            return true;
+        if( url.contains( "soundcloud" ) )
             return true;
     }
 
@@ -194,6 +212,12 @@ DropJob::isDropType( DropJob::DropType desired, const QMimeData* data )
 
         // Not the most elegant
         if ( url.contains( "spotify" ) && url.contains( "playlist" ) && s_canParseSpotifyPlaylists )
+            return true;
+
+        if( url.contains( "soundcloud" ) && url.contains( "sets" ) )
+            return true;
+
+        if( url.contains( "ex.fm" ) && !url.contains( "/song/" ) ) // We treat all but song as playlist
             return true;
 
         if ( url.contains( "rdio.com" ) && url.contains( "people" ) && url.contains( "playlist" ) )
@@ -527,6 +551,8 @@ DropJob::handleXspfs( const QString& fileUrls )
 void
 DropJob::handleSpotifyUrls( const QString& urlsRaw )
 {
+    // Todo: Allow search querys, and split these in a better way.
+    // Example: spotify:search:artist:Madonna year:<1970 year:>1990
     QStringList urls = urlsRaw.split( QRegExp( "\\s+" ), QString::SkipEmptyParts );
     qDebug() << "Got spotify browse uris!" << urls;
 
@@ -568,6 +594,41 @@ DropJob::handleRdioUrls( const QString& urlsRaw )
 
 
 void
+DropJob::handleSoundcloudUrls( const QString& urlsRaw )
+{
+    QStringList urls = urlsRaw.split( QRegExp( "\\s+" ), QString::SkipEmptyParts );
+    qDebug() << "Got Soundcloud urls!" << urls;
+
+
+    if ( dropAction() == Default )
+        setDropAction( Create );
+
+    SoundcloudParser* sc = new SoundcloudParser( urls, dropAction() == Create, this );
+    connect( sc, SIGNAL( tracks( QList<Tomahawk::query_ptr> ) ), this, SLOT( onTracksAdded( QList< Tomahawk::query_ptr > ) ) );
+
+    m_queryCount++;
+
+}
+
+
+void
+DropJob::handleExfmUrls( const QString& urlsRaw )
+{
+    QStringList urls = urlsRaw.split( QRegExp( "\\s+" ), QString::SkipEmptyParts );
+    qDebug() << "Got Ex.fm urls!" << urls;
+
+
+    if ( dropAction() == Default )
+        setDropAction( Create );
+
+    ExfmParser* exfm = new ExfmParser( urls, dropAction() == Create, this );
+    connect( exfm, SIGNAL( tracks( QList<Tomahawk::query_ptr> ) ), this, SLOT( onTracksAdded( QList< Tomahawk::query_ptr > ) ) );
+
+    m_queryCount++;
+
+}
+
+void
 DropJob::handleGroovesharkUrls ( const QString& urlsRaw )
 {
 #ifdef QCA2_FOUND
@@ -605,6 +666,10 @@ DropJob::handleAllUrls( const QString& urls )
         handleSpotifyUrls( urls );
     else if ( urls.contains( "rdio.com" ) )
         handleRdioUrls( urls );
+    else if( urls.contains( "soundcloud" ) )
+        handleSoundcloudUrls( urls );
+    else if( urls.contains( "ex.fm" ) )
+        handleExfmUrls( urls );
 #ifdef QCA2_FOUND
     else if ( urls.contains( "grooveshark.com" ) )
         handleGroovesharkUrls( urls );
@@ -633,6 +698,24 @@ DropJob::handleTrackUrls( const QString& urls )
         tDebug() << "Got a list of spotify urls!" << tracks;
         SpotifyParser* spot = new SpotifyParser( tracks, this );
         connect( spot, SIGNAL( tracks( QList<Tomahawk::query_ptr> ) ), this, SLOT( onTracksAdded( QList< Tomahawk::query_ptr > ) ) );
+        m_queryCount++;
+    }
+    else if ( urls.contains( "soundcloud" ) )
+    {
+        QStringList tracks = urls.split( QRegExp( "\\s+" ), QString::SkipEmptyParts );
+
+        tDebug() << "Got a list of Soundcloud tracks!" << tracks;
+        SoundcloudParser* sc = new SoundcloudParser( tracks, false, this );
+        connect( sc, SIGNAL( tracks( QList<Tomahawk::query_ptr> ) ), this, SLOT( onTracksAdded( QList< Tomahawk::query_ptr > ) ) );
+        m_queryCount++;
+    }
+    else if ( urls.contains( "ex.fm" ) )
+    {
+        QStringList tracks = urls.split( QRegExp( "\\s+" ), QString::SkipEmptyParts );
+
+        tDebug() << "Got a list of Exfm tracks!" << tracks;
+        ExfmParser* exfm = new ExfmParser( tracks, false, this );
+        connect( exfm, SIGNAL( tracks( QList<Tomahawk::query_ptr> ) ), this, SLOT( onTracksAdded( QList< Tomahawk::query_ptr > ) ) );
         m_queryCount++;
     }
     else if ( urls.contains( "rdio.com" ) )
@@ -769,6 +852,7 @@ DropJob::removeRemoteSources()
 QList< query_ptr >
 DropJob::getArtist( const QString &artist, Tomahawk::ModelMode mode )
 {
+    Q_UNUSED( mode );
     artist_ptr artistPtr = Artist::get( artist );
     if ( artistPtr->playlistInterface( Mixed )->tracks().isEmpty() )
     {

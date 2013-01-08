@@ -3,6 +3,7 @@
  *   Copyright 2010-2011, Christian Muehlhaeuser <muesli@tomahawk-player.org>
  *   Copyright 2010-2012, Leo Franchi <lfranchi@kde.org>
  *   Copyright 2010-2011, Jeff Mitchell <jeff@tomahawk-player.org>
+ *   Copyright 2012,      Teo Mrnjavac <teo@kde.org>
  *
  *   Tomahawk is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -21,20 +22,24 @@
 #ifndef TOMAHAWKWINDOW_H
 #define TOMAHAWKWINDOW_H
 
+#include "Result.h"
+#include "audio/AudioEngine.h"
+#include "utils/XspfLoader.h"
+
+#include "config.h"
+
 #include <QMainWindow>
 #include <QVariantMap>
 #include <QPushButton>
 #include <QString>
 #include <QStackedWidget>
-
-#include "Result.h"
-#include "audio/AudioEngine.h"
-#include "utils/XspfLoader.h"
+#include <QToolButton>
 
 #ifdef Q_OS_WIN
     #include <shobjidl.h>
 #endif
 
+class SettingsDialog;
 namespace Tomahawk
 {
     namespace Accounts
@@ -55,6 +60,8 @@ class PlaylistModel;
 class QueueView;
 class AnimatedSplitter;
 
+class AccountsToolButton;
+
 namespace Ui
 {
     class TomahawkWindow;
@@ -69,8 +76,8 @@ public:
     TomahawkWindow( QWidget* parent = 0 );
     ~TomahawkWindow();
 
-    AudioControls* audioControls() { return m_audioControls; }
-    SourceTreeView* sourceTreeView() const { return m_sourcetree; }
+    AudioControls* audioControls();
+    SourceTreeView* sourceTreeView() const;
 
     void setWindowTitle( const QString& title );
 
@@ -93,19 +100,15 @@ public slots:
     void showSettingsDialog();
     void showDiagnosticsDialog();
     void legalInfo();
+    void openLogfile();
     void updateCollectionManually();
     void rescanCollectionManually();
-    void pluginMenuAdded( QMenu* );
-    void pluginMenuRemoved( QMenu* );
     void showOfflineSources();
 
     void fullScreenEntered();
     void fullScreenExited();
 
 private slots:
-    void onAccountAdded( Tomahawk::Accounts::Account* account );
-    void onAccountConnected();
-    void onAccountDisconnected();
     void onAccountError();
 
     void onHistoryBackAvailable( bool avail );
@@ -115,8 +118,6 @@ private slots:
 
     void onXSPFError( XSPFLoader::XSPFErrorCode error );
     void onXSPFOk( const Tomahawk::playlist_ptr& );
-
-    void addPeerManually();
 
     void onPlaybackLoading( const Tomahawk::result_ptr& result );
 
@@ -143,10 +144,12 @@ private slots:
 
     void crashNow();
 
-#ifdef Q_OS_WIN
+    void toggleMenuBar();
+    void balanceToolbar();
+
+
     void audioStateChanged( AudioState newState, AudioState oldState );
     void updateWindowsLoveButton();
-#endif
 
 private:
     void loadSettings();
@@ -154,6 +157,7 @@ private:
 
     void applyPlatformTweaks();
     void setupSignals();
+    void setupMenuBar();
     void setupToolBar();
     void setupSideBar();
     void setupUpdateCheck();
@@ -161,8 +165,11 @@ private:
 #ifdef Q_OS_WIN
     bool setupWindowsButtons();
     const unsigned int m_buttonCreatedID;
-    ITaskbarList3 *m_taskbarList;
+    HICON thumbIcon(TomahawkUtils::ImageType type);
+  #ifdef HAVE_THUMBBUTTON
+    ITaskbarList3* m_taskbarList;
     THUMBBUTTON m_thumbButtons[5];
+  #endif
     enum TB_STATES{ TP_PREVIOUS = 0,TP_PLAY_PAUSE = 1,TP_NEXT = 2,TP_LOVE = 4 };
 #endif
 
@@ -176,6 +183,18 @@ private:
     QueueView* m_queueView;
     AnimatedSplitter* m_sidebar;
     JobStatusSortModel* m_jobsModel;
+    SettingsDialog* m_settingsDialog;
+
+    // Menus and menu actions: Accounts menu
+    QMenuBar    *m_menuBar;
+#ifndef Q_OS_MAC
+    QAction     *m_compactMenuAction;
+    QMenu       *m_compactMainMenu;
+#endif
+    AccountsToolButton *m_accountsButton;
+    QToolBar *m_toolbar;
+    QWidget *m_toolbarLeftBalancer;
+    QWidget *m_toolbarRightBalancer;
 
     QAction* m_backAction;
     QAction* m_forwardAction;

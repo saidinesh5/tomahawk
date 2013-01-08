@@ -20,13 +20,13 @@
 #ifndef AUDIOCONTROLS_H
 #define AUDIOCONTROLS_H
 
-#include <QtGui/QWidget>
-#include <QtCore/QTimer>
-#include <QtCore/QTimeLine>
-
 #include "Result.h"
 #include "PlaylistInterface.h"
 #include "Query.h"
+
+#include <QWidget>
+#include <QTimer>
+#include <QTimeLine>
 
 class QDropEvent;
 class QDragEnterEvent;
@@ -72,6 +72,7 @@ private slots:
 
     void onPlaybackTimer( qint64 msElapsed );
     void onVolumeChanged( int volume );
+    void onControlStateChanged();
 
     void onRepeatClicked();
     void onShuffleClicked();
@@ -81,6 +82,7 @@ private slots:
     void onTrackClicked();
     void onSocialButtonClicked();
     void onLoveButtonClicked( bool );
+    void onOwnerButtonClicked();
 
     void droppedTracks( QList<Tomahawk::query_ptr> );
 
@@ -92,8 +94,8 @@ private:
     void setSocialActions();
 
     Ui::AudioControls* ui;
-    
-    QWeakPointer<SocialWidget> m_socialWidget;
+
+    QPointer<SocialWidget> m_socialWidget;
 
     Tomahawk::result_ptr m_currentTrack;
     Tomahawk::PlaylistModes::RepeatMode m_repeatMode;
@@ -101,9 +103,8 @@ private:
 
     QTimer m_phononTickCheckTimer;
     QTimeLine m_sliderTimeLine;
-    qint64 m_seekMsecs;
+    bool m_seeked;
     qint64 m_lastSliderCheck;
-    bool m_noTimeChange;
     qint64 m_lastTextSecondShown;
 
     QWidget* m_parent;

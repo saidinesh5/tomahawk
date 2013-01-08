@@ -29,6 +29,8 @@
 #include "playlist/LovedTracksModel.h"
 #include "playlist/PlaylistLargeItemDelegate.h"
 
+#include "utils/ImageRegistry.h"
+
 using namespace Tomahawk;
 
 
@@ -57,6 +59,13 @@ LovedTracksItem::text() const
 }
 
 
+QIcon
+LovedTracksItem::icon() const
+{
+    return ImageRegistry::instance()->icon( RESPATH "images/loved_playlist.svg" );
+}
+
+
 void
 LovedTracksItem::activate()
 {
@@ -64,7 +73,7 @@ LovedTracksItem::activate()
     {
         SourceItem* par = dynamic_cast< SourceItem* >( parent() );
         FlexibleView* pv = new FlexibleView( ViewManager::instance()->widget() );
-        pv->setPixmap( QPixmap( RESPATH "images/loved_playlist.png" ) );
+        pv->setPixmap( TomahawkUtils::defaultPixmap( TomahawkUtils::LovedPlaylist, TomahawkUtils::Original, QSize( 128, 128 ) ) );
 
         LovedTracksModel* raModel = new LovedTracksModel( pv );
         raModel->setTitle( text() );
@@ -75,13 +84,18 @@ LovedTracksItem::activate()
 
         pv->setEmptyTip( tr( "Sorry, we could not find any loved tracks!" ) );
         if ( !par )
+        {
             raModel->setDescription( tr( "The most loved tracks from all your friends" ) );
+            pv->setGuid( QString( "lovedtracks" ) );
+        }
         else
         {
             if ( par->source()->isLocal() )
                 raModel->setDescription( tr( "All of your loved tracks" ) );
             else
                 raModel->setDescription( tr( "All of %1's loved tracks" ).arg( par->source()->friendlyName() ) );
+
+            pv->setGuid( QString( "lovedtracks/%1" ).arg( par->source()->userName() ) );
         }
 
         pv->setPlayableModel( raModel );
@@ -134,10 +148,23 @@ LovedTracksItem::dropMimeData( const QMimeData* data, Qt::DropAction action )
 }
 
 
+int
+LovedTracksItem::peerSortValue() const
+{
+    return m_sortValue;
+}
+
+
+void
+LovedTracksItem::setSortValue(int value)
+{
+    m_sortValue = value;
+}
+
+
 void
 LovedTracksItem::loveDroppedTracks( QList< Tomahawk::query_ptr > qrys )
 {
     foreach( Tomahawk::query_ptr qry, qrys )
         qry->setLoved( true );
 }
-

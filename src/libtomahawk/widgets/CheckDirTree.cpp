@@ -45,6 +45,13 @@ CheckDirModel::CheckDirModel( QWidget* parent )
 
 CheckDirModel::~CheckDirModel()
 {
+    cleanup();
+}
+
+
+void
+CheckDirModel::cleanup()
+{
 #ifdef Q_OS_MAC
     // reset to previous state
     if ( m_shownVolumes )
@@ -82,7 +89,27 @@ CheckDirModel::getFileInfoResult()
 void
 CheckDirModel::volumeShowFinished()
 {
+#if ! QT_VERSION >= QT_VERSION_CHECK( 5, 0, 0 )
+//FIXME: this has no equivalent in Qt5, does it just work there?
     reset();
+#endif
+
+#ifdef Q_OS_MAC
+    // Make sure /Volumes is there, if not wait and try again
+    const QModelIndex parent = index("/");
+    const int count = rowCount(parent);
+    bool found = false;
+    for ( int i = 0; i < count; i++ )
+    {
+        if ( data( index( i, 0, parent ) ).toString() == "Volumes" )
+        {
+            found = true;
+            break;
+        }
+    }
+    if ( !found )
+        QTimer::singleShot( 500, this, SLOT( volumeShowFinished() ) );
+#endif
 }
 
 
@@ -187,6 +214,13 @@ CheckDirTree::CheckDirTree( QWidget* parent )
                      SLOT( onCollapse( QModelIndex ) ) );
     connect( this, SIGNAL( expanded( QModelIndex ) ),
                      SLOT( onExpand( QModelIndex ) ) );
+}
+
+
+void
+CheckDirTree::cleanup()
+{
+    m_dirModel.cleanup();
 }
 
 

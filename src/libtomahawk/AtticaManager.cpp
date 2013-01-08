@@ -24,6 +24,12 @@
 #include "Source.h"
 #include "config.h"
 
+#include "utils/Logger.h"
+#include "accounts/ResolverAccount.h"
+#include "accounts/AccountManager.h"
+#include "utils/BinaryInstallerHelper.h"
+#include "utils/Closure.h"
+
 #include <attica/downloaditem.h>
 
 #include <QCoreApplication>
@@ -34,12 +40,6 @@
 #include <QDomDocument>
 #include <QDomElement>
 #include <QDomNode>
-
-#include "utils/Logger.h"
-#include "accounts/ResolverAccount.h"
-#include "accounts/AccountManager.h"
-#include "utils/BinaryInstallerHelper.h"
-#include "utils/Closure.h"
 
 using namespace Attica;
 
@@ -66,7 +66,7 @@ AtticaManager::AtticaManager( QObject* parent )
 
     // resolvers
 //    m_manager.addProviderFile( QUrl( "http://bakery.tomahawk-player.org/resolvers/providers.xml" ) );
-    
+
     const QString url = QString( "%1/resolvers/providers.xml?version=%2" ).arg( hostname() ).arg( TomahawkUtils::appFriendlyVersion() );
     QNetworkReply* reply = TomahawkUtils::nam()->get( QNetworkRequest( QUrl( url ) ) );
     NewClosure( reply, SIGNAL( finished() ), this, SLOT( providerFetched( QNetworkReply* ) ), reply );
@@ -89,6 +89,25 @@ AtticaManager::~AtticaManager()
             continue;
 
         delete m_resolverStates[ id ].pixmap;
+    }
+}
+
+
+void
+AtticaManager::fetchMissingIcons()
+{
+    foreach ( Content resolver, m_resolvers )
+    {
+        if ( !m_resolverStates.contains( resolver.id() ) )
+            m_resolverStates.insert( resolver.id(), Resolver() );
+
+        if ( !m_resolverStates.value( resolver.id() ).pixmap && !resolver.icons().isEmpty() && !resolver.icons().first().url().isEmpty() )
+        {
+            QNetworkReply* fetch = TomahawkUtils::nam()->get( QNetworkRequest( resolver.icons().first().url() ) );
+            fetch->setProperty( "resolverId", resolver.id() );
+
+            connect( fetch, SIGNAL( finished() ), this, SLOT( resolverIconFetched() ) );
+        }
     }
 }
 
@@ -284,6 +303,8 @@ AtticaManager::resolverData(const QString &atticaId) const
 void
 AtticaManager::providerError( QNetworkReply::NetworkError err )
 {
+    Q_UNUSED( err );
+
     // So those who care know
     emit resolversLoaded( Content::List() );
 }
@@ -368,19 +389,7 @@ AtticaManager::resolversList( BaseJob* j )
     // load icon cache from disk, and fetch any we are missing
     loadPixmapsFromCache();
 
-    foreach ( Content resolver, m_resolvers )
-    {
-        if ( !m_resolverStates.contains( resolver.id() ) )
-            m_resolverStates.insert( resolver.id(), Resolver() );
-
-        if ( !m_resolverStates.value( resolver.id() ).pixmap && !resolver.icons().isEmpty() && !resolver.icons().first().url().isEmpty() )
-        {
-            QNetworkReply* fetch = TomahawkUtils::nam()->get( QNetworkRequest( resolver.icons().first().url() ) );
-            fetch->setProperty( "resolverId", resolver.id() );
-
-            connect( fetch, SIGNAL( finished() ), this, SLOT( resolverIconFetched() ) );
-        }
-    }
+    fetchMissingIcons();
 
     syncServerData();
 
@@ -399,7 +408,6 @@ AtticaManager::binaryResolversList( BaseJob* j )
 
     Content::List binaryResolvers = job->itemList();
 
-    // NOTE: No binary support for linux distros
     QString platform;
 #if defined(Q_OS_MAC)
     platform = "osx";
@@ -465,6 +473,8 @@ AtticaManager::resolverIconFetched()
     icon->loadFromData( data );
     m_resolverStates[ resolverId ].pixmap = icon;
     m_resolverStates[ resolverId ].pixmapDirty = true;
+
+    emit resolverIconUpdated( resolverId );
 }
 
 
@@ -473,6 +483,7 @@ AtticaManager::syncServerData()
 {
     // look for any newer. m_resolvers has list from server, and m_resolverStates will contain any locally installed ones
     // also update ratings
+    tLog() << "Syncing server data!";
     foreach ( const QString& id, m_resolverStates.keys() )
     {
         Resolver r = m_resolverStates[ id ];
@@ -496,6 +507,7 @@ AtticaManager::syncServerData()
             {
                 if ( TomahawkUtils::newerVersion( r.version, upstream.version() ) )
                 {
+                    tLog() << "Doing upgrade of: " << id;
                     m_resolverStates[ id ].state = NeedsUpgrade;
                     QMetaObject::invokeMethod( this, "upgradeResolver", Qt::QueuedConnection, Q_ARG( Attica::Content, upstream ) );
                 }
@@ -534,7 +546,8 @@ void AtticaManager::doInstallResolver( const Content& resolver, bool autoCreate,
 
 //    ItemJob< DownloadItem >* job = m_resolverProvider.downloadLink( resolver.id() );
     QUrl url( QString( "%1/resolvers/v1/content/download/%2/1" ).arg( hostname() ).arg( resolver.id() ) );
-    url.addQueryItem( "tomahawkversion", TomahawkUtils::appFriendlyVersion() );
+
+    TomahawkUtils::urlAddQueryItem( url, "tomahawkversion", TomahawkUtils::appFriendlyVersion() );
     QNetworkReply* r = TomahawkUtils::nam()->get( QNetworkRequest( url ) );
     NewClosure( r, SIGNAL( finished() ), this, SLOT( resolverDownloadFinished( QNetworkReply* ) ), r );
     r->setProperty( "resolverId", resolver.id() );
@@ -547,6 +560,7 @@ void AtticaManager::doInstallResolver( const Content& resolver, bool autoCreate,
 void
 AtticaManager::upgradeResolver( const Content& resolver )
 {
+    tLog() << "UPGRADING:" << resolver.id() << m_resolverStates[ resolver.id() ].state;
     Q_ASSERT( m_resolverStates.contains( resolver.id() ) );
     Q_ASSERT( m_resolverStates[ resolver.id() ].state == NeedsUpgrade );
 
@@ -674,6 +688,7 @@ AtticaManager::payloadFetched()
                     TomahawkSettings::instance()->addAccount( resolver->accountId() );
                 }
 
+                fetchMissingIcons();
                 installedSuccessfully = true;
             }
         }
@@ -718,6 +733,8 @@ AtticaManager::uninstallResolver( const QString& pathToResolver )
             if ( resolver.id() == atticaId ) // this is the one
             {
                 m_resolverStates[ atticaId ].state = Uninstalled;
+                delete m_resolverStates[ resolver.id() ].pixmap;
+                m_resolverStates[ atticaId ].pixmap = 0;
                 TomahawkSettingsGui::instanceGui()->setAtticaResolverState( atticaId, Uninstalled );
 
                 doResolverRemove( atticaId );
@@ -738,6 +755,9 @@ AtticaManager::uninstallResolver( const Content& resolver )
         m_resolverStates[ resolver.id() ].state = Uninstalled;
         TomahawkSettingsGui::instanceGui()->setAtticaResolverState( resolver.id(), Uninstalled );
     }
+
+    delete m_resolverStates[ resolver.id() ].pixmap;
+    m_resolverStates[ resolver.id() ].pixmap = 0;
 
     doResolverRemove( resolver.id() );
 }
@@ -760,4 +780,12 @@ AtticaManager::doResolverRemove( const QString& id ) const
         return;
 
     TomahawkUtils::removeDirectory( resolverDir.absolutePath() );
+
+    QDir cacheDir = TomahawkUtils::appDataDir();
+    if ( !cacheDir.cd( "atticacache" ) )
+        return;
+
+    const bool removed = cacheDir.remove( id + ".png" );
+    tDebug() << "Tried to remove cached image, succeeded?" << removed << cacheDir.filePath( id );
 }
+

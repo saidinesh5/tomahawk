@@ -11,14 +11,27 @@ SET( TOMAHAWK_ORGANIZATION_DOMAIN "tomahawk-player.org" )
 SET( TOMAHAWK_APPLICATION_NAME  "Tomahawk" )
 SET( TOMAHAWK_DESCRIPTION_SUMMARY "The social media player" )
 
+IF( WIN32 )
+    SET( TOMAHAWK_SYSTEM "Windows" )
+ELSEIF( APPLE )
+    SET( TOMAHAWK_SYSTEM "OS X" )
+ELSEIF( UNIX )
+    SET( TOMAHAWK_SYSTEM "Linux")
+ELSE()
+    SET( TOMAHAWK_SYSTEM "Uknown Platform, please let the Tomahawk team know, this actually happened" )
+ENDIF()
+
 SET( TOMAHAWK_VERSION_MAJOR 0 )
 SET( TOMAHAWK_VERSION_MINOR 5 )
 SET( TOMAHAWK_VERSION_PATCH 99 )
-
 #SET( TOMAHAWK_VERSION_RC 0 )
+
+SET( TOMAHAWK_TRANSLATION_LANGUAGES ar bg bn_IN ca cs de en el es fi fr hi_IN hu gl it ja lt pl pt_BR ru sv tr zh_CN zh_TW )
 
 # enforce proper symbol exporting on all platforms
 add_definitions( "-fvisibility=hidden" )
+# enforce using constBegin, constEnd for const-iterators
+add_definitions( "-DQT_STRICT_ITERATORS" )
 
 # build options
 option(BUILD_GUI "Build Tomahawk with GUI" ON)
@@ -39,6 +52,7 @@ IF( WITH_BREAKPAD )
     message(STATUS "Build with support for breakpad.")
     IF( CMAKE_COMPILER_IS_GNUCXX )
         ADD_DEFINITIONS( -DSTDC_HEADERS -std=gnu++98 )
+#        SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSTDC_HEADERS -std=gnu++98" )
     ENDIF()
 ENDIF()
 
@@ -51,7 +65,7 @@ IF( TOMAHAWK_VERSION_RC )
 ENDIF()
 
 # additional info for non-release builds
-IF( NOT BUILD_RELEASE )
+IF( NOT BUILD_RELEASE AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git/" )
     INCLUDE( CMakeDateStamp )
     SET( TOMAHAWK_VERSION_DATE "${CMAKE_DATESTAMP_YEAR}${CMAKE_DATESTAMP_MONTH}${CMAKE_DATESTAMP_DAY}" )
     IF( TOMAHAWK_VERSION_DATE GREATER 0)
@@ -77,26 +91,103 @@ INCLUDE( GNUInstallDirs )
 # installer creation
 INCLUDE( TomahawkCPack.cmake )
 
-#deps
+# deps
 INCLUDE( MacroOptionalFindPackage )
 INCLUDE( MacroLogFeature )
 
-# Check if we need qtgui:
-SET(NEEDED_QT4_COMPONENTS QtCore QtXml QtNetwork )
-IF( NOT BUILD_GUI )
-    ADD_DEFINITIONS( -DENABLE_HEADLESS )
-    MESSAGE( STATUS "Building Tomahawk ${TOMAHAWK_VERSION} in HEADLESS mode ***" )
-ELSE()
-    MESSAGE( STATUS "Building Tomahawk ${TOMAHAWK_VERSION} full GUI version ***" )
-    LIST(APPEND NEEDED_QT4_COMPONENTS "QtGui" "QtWebkit" "QtUiTools" )
+# headless mode
+if( NOT BUILD_GUI )
+    add_definitions( -DENABLE_HEADLESS )
+    message( STATUS "Building Tomahawk ${TOMAHAWK_VERSION} in HEADLESS mode ***" )
+else()
+    message( STATUS "Building Tomahawk ${TOMAHAWK_VERSION} full GUI version ***" )
+endif()
+
+# First decide if Visualizer is to be built or not
+macro_optional_find_package(VSXu)
+macro_log_feature(VSXU_FOUND "VSXu" "Vovoid VSXu Audio Visual library" "http://www.vsxu.com" FALSE "" "VSXu is needed to provide cool music visualis for currently playing music.")
+
+IF( BUILD_GUI AND VSXU_FOUND )
+    ADD_DEFINITIONS(-DENABLE_VISUALIZER)
+    SET(ENABLE_VISUALIZER TRUE)
+    FIND_PACKAGE (OpenGL REQUIRED)
+    MESSAGE( STATUS "Building Tomahawk ${TOMAHAWK_VERSION} with the VSXu Music Visualizer." )
 ENDIF()
 
-IF( BUILD_GUI AND UNIX AND NOT APPLE )
-    FIND_PACKAGE( X11 )
-ENDIF()
+find_package(Qt5Core QUIET)
+if(Qt5Core_DIR)
+    find_package(Qt5Widgets QUIET)
+    message(STATUS "Found Qt5! Please keep in mind, this is highly experimental and not our main development..")
 
-macro_optional_find_package(Qt4 4.7.0 COMPONENTS ${NEEDED_QT4_COMPONENTS} )
-macro_log_feature(QT4_FOUND "Qt" "A cross-platform application and UI framework" "http://qt.nokia.com" TRUE "" "If you see this, although libqt4-devel is installed, check whether the \n     qtwebkit-devel package and whatever contains QtUiTools is installed too")
+    macro(qt_wrap_ui)
+        qt5_wrap_ui(${ARGN})
+    endmacro()
+
+    macro(qt_add_resources)
+        qt5_add_resources(${ARGN})
+    endmacro()
+
+    find_package(Qt5LinguistTools REQUIRED)
+    macro(qt_add_translation)
+        qt5_add_translation(${ARGN})
+    endmacro()
+
+    macro(setup_qt)
+    endmacro()
+
+    set(QT_RCC_EXECUTABLE "${Qt5Core_RCC_EXECUTABLE}")
+    #FIXME: CrashReporter depends on deprecated QHttp
+    set(WITH_CRASHREPORTER OFF)
+    set(WITH_BREAKPAD OFF)
+else()
+    message(STATUS "Could not find Qt5, now searching for Qt4... you're better off this way!")
+
+    set(NEEDED_QT4_COMPONENTS "QtCore" "QtXml" "QtNetwork")
+    if(BUILD_GUI)
+        list(APPEND NEEDED_QT4_COMPONENTS "QtGui" "QtWebkit" "QtUiTools" "QtSvg" )
+    endif()
+
+    macro_optional_find_package(Qt4 4.7.0 COMPONENTS ${NEEDED_QT4_COMPONENTS} )
+    macro_log_feature(QT4_FOUND "Qt" "A cross-platform application and UI framework" "http://qt.nokia.com" TRUE "" "If you see this, although libqt4-devel is installed, check whether the \n     qtwebkit-devel package and whatever contains QtUiTools is installed too")
+
+    macro(qt5_use_modules)
+    endmacro()
+
+    macro(qt_wrap_ui)
+        qt4_wrap_ui(${ARGN})
+    endmacro()
+
+    macro(qt_add_resources)
+        qt4_add_resources(${ARGN})
+    endmacro()
+
+    macro(qt_add_translation)
+        qt4_add_translation(${ARGN})
+    endmacro()
+
+    macro(setup_qt)
+        if(NOT BUILD_GUI)
+            set(QT_DONT_USE_QTGUI TRUE)
+        endif()
+        if(UNIX AND NOT APPLE)
+            set(QT_USE_QTDBUS TRUE)
+        endif()
+        set(QT_USE_QTSQL TRUE)
+        set(QT_USE_QTNETWORK TRUE)
+        set(QT_USE_QTXML TRUE)
+        set(QT_USE_QTWEBKIT TRUE)
+
+        if(ENABLE_VISUALIZER)
+          set( QT_USE_QTOPENGL TRUE )
+        endif(ENABLE_VISUALIZER)
+
+        include( ${QT_USE_FILE} )
+    endmacro()
+endif()
+
+if(BUILD_GUI AND UNIX AND NOT APPLE)
+    find_package( X11 )
+endif()
 
 macro_optional_find_package(Phonon 4.5.0)
 macro_log_feature(PHONON_FOUND "Phonon" "The Phonon multimedia library" "http://phonon.kde.org" TRUE "" "")
@@ -118,20 +209,23 @@ macro_log_feature(TAGLIB_FOUND "TagLib" "Audio Meta-Data Library" "http://develo
 include( CheckTagLibFileName )
 check_taglib_filename( COMPLEX_TAGLIB_FILENAME )
 
-macro_optional_find_package( Boost )
+macro_optional_find_package(Boost)
 macro_log_feature(Boost_FOUND "Boost" "Provides free peer-reviewed portable C++ source libraries" "http://www.boost.org" TRUE "" "") #FIXME: give useful explaination
 
 macro_optional_find_package(QCA2)
-macro_log_feature(QCA2_FOUND "QCA2" "Provides encryption and signing functions required for Grooveshark resolver" "http://delta.affinix.com/qca/" FALSE "" "")
+macro_log_feature(QCA2_FOUND "QCA2" "Provides encryption and signing functions required for Grooveshark resolver" "http://delta.affinix.com/qca/" TRUE "" "")
 
 macro_optional_find_package(LibAttica 0.4.0)
-macro_log_feature(LIBATTICA_FOUND "libattica" "Provides support for automatic fetching and managing of resolvers from the tomahawk website" "https://projects.kde.org/projects/kdesupport/attica" TRUE "" "")
+macro_log_feature(LIBATTICA_FOUND "libattica" "Provides support for installation of resolvers from the Tomahawk website" "https://projects.kde.org/projects/kdesupport/attica" TRUE "" "")
 
 macro_optional_find_package(QuaZip)
 macro_log_feature(QuaZip_FOUND "QuaZip" "Provides support for extracting downloaded resolvers automatically." "http://quazip.sourceforge.net/" TRUE "" "")
 
 macro_optional_find_package(Jreen 1.0.5)
 macro_log_feature(JREEN_FOUND "Jreen" "Qt XMPP Library" "http://qutim.org/jreen / https://github.com/euroelessar/jreen" FALSE "" "Jreen is needed for the Jabber SIP plugin.\n")
+if(PC_JREEN_VERSION STREQUAL "1.1.0")
+    message(FATAL_ERROR "Jreen 1.1.0 has a very annoying bug that breaks accepting auth requests in Tomahawk. Please upgrade to 1.1.1 or downgrade to 1.0.5.")
+endif()
 
 macro_optional_find_package(QTweetLib)
 macro_log_feature(QTWEETLIB_FOUND "QTweetLib" "Qt Twitter Library" "https://github.com/minimoog/QTweetLib" FALSE "" "QTweetLib is needed for the Twitter SIP plugin.\n")
@@ -139,14 +233,26 @@ macro_log_feature(QTWEETLIB_FOUND "QTweetLib" "Qt Twitter Library" "https://gith
 macro_optional_find_package(LibLastFm 1.0.0)
 macro_log_feature(LIBLASTFM_FOUND "liblastfm" "Qt library for the Last.fm webservices" "https://github.com/eartle/liblastfm" TRUE "" "liblastfm is needed for scrobbling tracks to Last.fm and fetching cover artwork")
 
-macro_optional_find_package(VSXu)
-macro_log_feature(VSXU_FOUND "VSXu" "Vovoid VSXu Audio Visual library" "http://www.vsxu.com" FALSE "" "VSXu is needed to provide cool music visualis for currently playing music.")
+# we need pthreads too
+macro_optional_find_package(Threads)
+macro_log_feature(THREADS_FOUND "Threads" "Threading Library" "" TRUE "" "Platform specific library for threading")
 
-IF( BUILD_GUI AND VSXU_FOUND )
-    ADD_DEFINITIONS(-DENABLE_VISUALIZER)
-    SET(ENABLE_VISUALIZER TRUE)
-    MESSAGE( STATUS "Building Tomahawk ${TOMAHAWK_VERSION} with the VSXu Music Visualizer." )
-ENDIF()
+IF( WIN32 )
+    macro_optional_find_package(QtSparkle)
+    macro_log_feature(QTSPARKLE_FOUND "qtsparkle" "Library for creating auto updaters written in Qt" "https://github.com/davidsansome/qtsparkle" FALSE "" "")
+ENDIF( WIN32 )
+
+#TODO: support external qxt
+set(QXTWEB_FOUND TRUE)
+set(QXTWEB_LIBRARIES qxtweb-standalone)
+set(QXTWEB_INCLUDE_DIRS ${THIRDPARTY_DIR}/qxt/qxtweb-standalone/qxtweb ${CMAKE_CURRENT_BINARY_DIR})
+
+### libportfwd
+set(LIBPORTFWD_INCLUDE_DIR ${THIRDPARTY_DIR}/libportfwd/include)
+set(LIBPORTFWD_LIBRARY tomahawk_portfwd)
+set(LIBPORTFWD_LIBRARIES ${LIBPORTFWD_LIBRARY})
+add_subdirectory(${THIRDPARTY_DIR}/libportfwd)
+
 
 #### submodules start
 # automatically init submodules here, don't delete this code we may add submodules again
@@ -162,15 +268,7 @@ ENDIF()
 
 #### submodules end
 
-### libportfwd
-SET( LIBPORTFWD_INCLUDE_DIR ${THIRDPARTY_DIR}/libportfwd/include )
-SET( LIBPORTFWD_LIBRARY tomahawk_portfwd )
-SET( LIBPORTFWD_LIBRARIES ${LIBPORTFWD_LIBRARY} )
-ADD_SUBDIRECTORY( ${THIRDPARTY_DIR}/libportfwd )
 
-# we need pthreads too
-macro_optional_find_package(Threads)
-macro_log_feature(THREADS_FOUND "Threads" "Threading Library" "" TRUE "" "Platform specific library for threading")
 
 macro_optional_find_package(KDE4)
 macro_optional_find_package(KDE4Installed)
@@ -189,10 +287,6 @@ IF(KDE4_FOUND)
 ELSE()
     SET( CLEAN_C_FLAGS ${CMAKE_C_FLAGS} )
 ENDIF()
-
-IF( WIN32 )
-  find_library(QTSPARKLE_LIBRARIES qtsparkle)
-ENDIF( WIN32 )
 
 #show dep log
 macro_display_feature_log()
@@ -215,8 +309,9 @@ IF( NOT APPLE )
     SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--no-undefined" )
 ENDIF( NOT APPLE )
 
-ADD_SUBDIRECTORY( thirdparty )
-ADD_SUBDIRECTORY( src/libtomahawk )
 SET( TOMAHAWK_LIBRARIES tomahawklib )
+
+ADD_SUBDIRECTORY( thirdparty )
 ADD_SUBDIRECTORY( src )
+ADD_SUBDIRECTORY( src/libtomahawk )
 ADD_SUBDIRECTORY( admin )

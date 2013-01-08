@@ -27,13 +27,13 @@
 
 #define ANIMATION_TIME 1000
 
-QWeakPointer< TomahawkUtils::SharedTimeLine > FadingPixmap::s_stlInstance = QWeakPointer< TomahawkUtils::SharedTimeLine >();
+QPointer< TomahawkUtils::SharedTimeLine > FadingPixmap::s_stlInstance = QPointer< TomahawkUtils::SharedTimeLine >();
 
-QWeakPointer< TomahawkUtils::SharedTimeLine >
+QPointer< TomahawkUtils::SharedTimeLine >
 FadingPixmap::stlInstance()
 {
     if ( s_stlInstance.isNull() )
-        s_stlInstance = QWeakPointer< TomahawkUtils::SharedTimeLine> ( new TomahawkUtils::SharedTimeLine() );
+        s_stlInstance = QPointer< TomahawkUtils::SharedTimeLine> ( new TomahawkUtils::SharedTimeLine() );
 
     return s_stlInstance;
 }
@@ -72,7 +72,7 @@ FadingPixmap::onAnimationStep( int frame )
 void
 FadingPixmap::onAnimationFinished()
 {
-    tDebug() << Q_FUNC_INFO;
+    tDebug( LOGVERBOSE ) << Q_FUNC_INFO;
 
     m_oldPixmap = QPixmap();
     repaint();

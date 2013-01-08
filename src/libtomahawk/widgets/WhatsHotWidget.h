@@ -21,15 +21,15 @@
 #ifndef WHATSHOTWIDGET_H
 #define WHATSHOTWIDGET_H
 
-#include <QtGui/QWidget>
-#include <QtGui/QListWidgetItem>
-#include <QtGui/QStyledItemDelegate>
-
 #include "PlaylistInterface.h"
 #include "infosystem/InfoSystem.h"
 #include "ViewPage.h"
 
 #include "DllMacro.h"
+
+#include <QWidget>
+#include <QListWidgetItem>
+#include <QStyledItemDelegate>
 
 class QSortFilterProxyModel;
 class QStandardItemModel;
@@ -38,7 +38,7 @@ class TreeModel;
 class PlaylistModel;
 class TreeProxyModel;
 class PlayableModel;
-
+class AnimatedSpinner;
 namespace Ui
 {
     class WhatsHotWidget;
@@ -97,8 +97,8 @@ private:
     void setLeftViewAlbums( PlayableModel* albumModel );
     void setLeftViewTracks( PlaylistModel* trackModel );
 
-
     QStandardItem* parseNode( QStandardItem* parentItem, const QString &label, const QVariant &data );
+
     Ui::WhatsHotWidget *ui;
     Tomahawk::playlistinterface_ptr m_playlistInterface;
 
@@ -118,7 +118,8 @@ private:
     QString m_queueItemToShow;
     QSet< QString > m_queuedFetches;
     QTimer* m_timer;
-
+    QMap<QString, QVariant> m_currentVIds;
+    AnimatedSpinner* m_loadingSpinner;
     friend class Tomahawk::ChartsPlaylistInterface;
 };
 

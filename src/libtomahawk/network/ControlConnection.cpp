@@ -96,11 +96,13 @@ ControlConnection::~ControlConnection()
         m_dbsyncconn->deleteLater();
 }
 
+
 source_ptr
 ControlConnection::source() const
 {
     return m_source;
 }
+
 
 Connection*
 ControlConnection::clone()
@@ -253,7 +255,7 @@ ControlConnection::handleMsg( msg_ptr msg )
     // if small and not compresed, print it out for debug
     if ( msg->length() < 1024 && !msg->is( Msg::COMPRESSED ) )
     {
-        qDebug() << id() << "got msg:" << QString::fromAscii( msg->payload() );
+        qDebug() << id() << "got msg:" << QString::fromLatin1( msg->payload() );
     }
 
     // All control connection msgs are JSON
@@ -287,13 +289,13 @@ ControlConnection::handleMsg( msg_ptr msg )
         }
         else
         {
-            tDebug() << id() << "Unhandled msg:" << QString::fromAscii( msg->payload() );
+            tDebug() << id() << "Unhandled msg:" << QString::fromLatin1( msg->payload() );
         }
 
         return;
     }
 
-    tDebug() << id() << "Invalid msg:" << QString::fromAscii( msg->payload() );
+    tDebug() << id() << "Invalid msg:" << QString::fromLatin1( msg->payload() );
 }
 
 

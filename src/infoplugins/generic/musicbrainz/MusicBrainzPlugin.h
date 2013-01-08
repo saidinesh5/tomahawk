@@ -34,6 +34,7 @@ namespace InfoSystem
 
 class INFOPLUGINDLLEXPORT MusicBrainzPlugin : public InfoPlugin
 {
+    Q_PLUGIN_METADATA( IID "org.tomahawk-player.Player.InfoPlugin" )
     Q_OBJECT
     Q_INTERFACES( Tomahawk::InfoSystem::InfoPlugin )
 
@@ -53,12 +54,10 @@ protected slots:
 
 
 private slots:
-    void artistSearchSlot();
-    void albumSearchSlot();
-    void tracksSearchSlot();
 
-    void albumFoundSlot();
-    void tracksFoundSlot();
+    void gotReleaseGroupsSlot();
+    void gotReleasesSlot();
+    void gotRecordingsSlot();
 };
 
 }

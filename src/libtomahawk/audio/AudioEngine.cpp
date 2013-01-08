@@ -21,10 +21,6 @@
 
 #include "config.h"
 
-#include <QtCore/QUrl>
-#include <QtNetwork/QNetworkReply>
-#include <QTemporaryFile>
-
 #include "PlaylistInterface.h"
 #include "SourcePlaylistInterface.h"
 #include "TomahawkSettings.h"
@@ -33,7 +29,6 @@
 #include "network/Servent.h"
 #include "utils/Qnr_IoDeviceStream.h"
 #include "utils/Closure.h"
-#include "HeadlessCheck.h"
 #include "infosystem/InfoSystem.h"
 #include "Album.h"
 #include "Pipeline.h"
@@ -42,7 +37,11 @@
 #include "jobview/ErrorStatusMessage.h"
 
 #include "utils/Logger.h"
-#include "SingleTrackPlaylistInterface.h"
+#include "playlist/SingleTrackPlaylistInterface.h"
+
+#include <QtCore/QUrl>
+#include <QtNetwork/QNetworkReply>
+#include <QTemporaryFile>
 
 using namespace Tomahawk;
 
@@ -146,7 +145,14 @@ AudioEngine::play()
         sendNowPlayingNotification( Tomahawk::InfoSystem::InfoNowResumed );
     }
     else
-        next();
+    {
+        if ( !m_currentTrack && m_playlist && m_playlist->nextResult() )
+        {
+            loadNextTrack();
+        }
+        else
+            next();
+    }
 }
 
 
@@ -165,7 +171,7 @@ AudioEngine::pause()
 void
 AudioEngine::stop( AudioErrorCode errorCode )
 {
-    tDebug( LOGEXTRA ) << Q_FUNC_INFO;
+    tDebug() << Q_FUNC_INFO << errorCode;
 
     if ( isStopped() )
         return;
@@ -225,19 +231,23 @@ AudioEngine::canGoNext()
         return false;
 
     if ( m_playlist.data()->skipRestrictions() == PlaylistModes::NoSkip ||
-        m_playlist.data()->skipRestrictions() == PlaylistModes::NoSkipForwards )
-        return false;
-
-    if ( !m_currentTrack.isNull() && !m_playlist->hasNextItem() &&
-         ( m_playlist->currentItem().isNull() || ( m_currentTrack->id() == m_playlist->currentItem()->id() ) ) )
+         m_playlist.data()->skipRestrictions() == PlaylistModes::NoSkipForwards )
     {
-        //For instance, when doing a catch-up while listening along, but the person
-        //you're following hasn't started a new track yet...don't do anything
-        tDebug( LOGEXTRA ) << Q_FUNC_INFO << "catch up, but same track or can't move on because don't have next track or it wasn't resolved";
         return false;
     }
 
-    return m_playlist.data()->hasNextItem();
+    if ( !m_currentTrack.isNull() && !m_playlist->hasNextResult() &&
+       ( m_playlist->currentItem().isNull() || ( m_currentTrack->id() == m_playlist->currentItem()->id() ) ) )
+    {
+        //For instance, when doing a catch-up while listening along, but the person
+        //you're following hasn't started a new track yet...don't do anything
+        tDebug( LOGEXTRA ) << Q_FUNC_INFO << "Catch up, but same track or can't move on because don't have next track or it wasn't resolved";
+        return false;
+    }
+
+    return ( m_currentTrack && m_playlist.data()->hasNextResult() &&
+             !m_playlist.data()->nextResult().isNull() &&
+             m_playlist.data()->nextResult()->isOnline() );
 }
 
 
@@ -251,7 +261,7 @@ AudioEngine::canGoPrevious()
         m_playlist.data()->skipRestrictions() == PlaylistModes::NoSkipBackwards )
         return false;
 
-    return true;
+    return ( m_currentTrack && m_playlist.data()->hasPreviousResult() && m_playlist.data()->previousResult()->isOnline() );
 }
 
 
@@ -332,7 +342,7 @@ AudioEngine::sendWaitingNotification() const
 {
     tDebug( LOGVERBOSE ) << Q_FUNC_INFO;
     //since it's async, after this is triggered our result could come in, so don't show the popup in that case
-    if ( !m_playlist.isNull() && m_playlist->hasNextItem() )
+    if ( m_playlist && m_playlist->nextResult() && m_playlist->nextResult()->isOnline() )
         return;
 
     Tomahawk::InfoSystem::InfoPushData pushData (
@@ -396,7 +406,7 @@ AudioEngine::onNowPlayingInfoReady( const Tomahawk::InfoSystem::InfoType type )
                 playInfo["coveruri"] = QFileInfo( *coverTempFile ).absoluteFilePath();
             }
             else
-                tDebug() << Q_FUNC_INFO << "failed to save cover image!";
+                tDebug() << Q_FUNC_INFO << "Failed to save cover image!";
         }
         delete coverTempFile;
     }
@@ -415,8 +425,6 @@ AudioEngine::onNowPlayingInfoReady( const Tomahawk::InfoSystem::InfoType type )
     playInfo["private"] = TomahawkSettings::instance()->privateListeningMode();
 
     Tomahawk::InfoSystem::InfoPushData pushData ( s_aeInfoIdentifier, type, playInfo, Tomahawk::InfoSystem::PushShortUrlFlag );
-
-    tDebug( LOGVERBOSE ) << Q_FUNC_INFO << "pushing data with type" << type;
     Tomahawk::InfoSystem::InfoSystem::instance()->pushInfo( pushData );
 }
 
@@ -449,6 +457,7 @@ AudioEngine::loadTrack( const Tomahawk::result_ptr& result )
         if ( !err )
         {
             tLog() << "Starting new song:" << m_currentTrack->url();
+            m_state = Loading;
             emit loading( m_currentTrack );
 
             if ( !isHttpResult( m_currentTrack->url() ) && !isLocalResult( m_currentTrack->url() ) )
@@ -467,8 +476,10 @@ AudioEngine::loadTrack( const Tomahawk::result_ptr& result )
                     if ( m_currentTrack->url().contains( "?" ) )
                     {
                         furl = QUrl( m_currentTrack->url().left( m_currentTrack->url().indexOf( '?' ) ) );
-                        furl.setEncodedQuery( QString( m_currentTrack->url().mid( m_currentTrack->url().indexOf( '?' ) + 1 ) ).toLocal8Bit() );
+                        TomahawkUtils::urlSetQuery( furl, QString( m_currentTrack->url().mid( m_currentTrack->url().indexOf( '?' ) + 1 ) ) );
                     }
+
+                    tLog( LOGVERBOSE ) << "Passing to Phonon:" << furl;
                     m_mediaObject->setCurrentSource( furl );
                 }
                 else
@@ -492,7 +503,6 @@ AudioEngine::loadTrack( const Tomahawk::result_ptr& result )
             }
             m_input = io;
             queueState( Playing );
-            emit started( m_currentTrack );
 
             if ( TomahawkSettings::instance()->privateListeningMode() != TomahawkSettings::FullyPrivate )
             {
@@ -526,7 +536,13 @@ AudioEngine::loadPreviousTrack()
         return;
     }
 
-    Tomahawk::result_ptr result = m_playlist.data()->previousItem();
+    Tomahawk::result_ptr result;
+    if ( m_playlist.data()->previousResult() )
+    {
+        result = m_playlist.data()->previousResult();
+        m_currentTrackPlaylist = m_playlist;
+    }
+
     if ( !result.isNull() )
         loadTrack( result );
     else
@@ -541,7 +557,7 @@ AudioEngine::loadNextTrack()
 
     Tomahawk::result_ptr result;
 
-    if ( !m_stopAfterTrack.isNull() )
+    if ( !m_stopAfterTrack.isNull() && !m_currentTrack.isNull() )
     {
         if ( m_stopAfterTrack->equals( m_currentTrack->toQuery() ) )
         {
@@ -553,19 +569,25 @@ AudioEngine::loadNextTrack()
 
     if ( m_queue && m_queue->trackCount() )
     {
-        result = m_queue->nextItem();
+        query_ptr query = m_queue->tracks().first();
+        if ( query && query->numResults() )
+            result = query->results().first();
     }
 
     if ( !m_playlist.isNull() && result.isNull() )
     {
-        tDebug( LOGEXTRA ) << Q_FUNC_INFO << "Loading playlist's next item";
-        result = m_playlist.data()->nextItem();
-        m_currentTrackPlaylist = m_playlist;
+        tDebug( LOGVERBOSE ) << Q_FUNC_INFO << "Loading playlist's next item" << m_playlist.data() << m_playlist->shuffled();
+
+        if ( m_playlist.data()->nextResult() )
+        {
+            result = m_playlist.data()->nextResult();
+            m_currentTrackPlaylist = m_playlist;
+        }
     }
 
     if ( !result.isNull() )
     {
-        tDebug( LOGEXTRA ) << Q_FUNC_INFO << "Got next item, loading track";
+        tDebug( LOGVERBOSE ) << Q_FUNC_INFO << "Got next item, loading track";
         loadTrack( result );
     }
     else
@@ -688,21 +710,25 @@ AudioEngine::playItem( const Tomahawk::album_ptr& album )
 
 
 void
-AudioEngine::onPlaylistNextTrackReady()
+AudioEngine::onPlaylistNextTrackAvailable()
 {
-    // If in real-time and you have a few seconds left, you're probably lagging -- finish it up
-    if ( m_playlist && m_playlist->latchMode() == PlaylistModes::RealTime && ( m_waitingOnNewTrack || m_currentTrack.isNull() || m_currentTrack->id() == 0 || ( currentTrackTotalTime() - currentTime() > 6000 ) ) )
+    tDebug() << Q_FUNC_INFO;
+
     {
+        // If in real-time and you have a few seconds left, you're probably lagging -- finish it up
+        if ( m_playlist && m_playlist->latchMode() == PlaylistModes::RealTime && ( m_waitingOnNewTrack || m_currentTrack.isNull() || m_currentTrack->id() == 0 || ( currentTrackTotalTime() - currentTime() > 6000 ) ) )
+        {
+            m_waitingOnNewTrack = false;
+            loadNextTrack();
+            return;
+        }
+
+        if ( !m_waitingOnNewTrack )
+            return;
+
         m_waitingOnNewTrack = false;
         loadNextTrack();
-        return;
     }
-
-    if ( !m_waitingOnNewTrack )
-        return;
-
-    m_waitingOnNewTrack = false;
-    loadNextTrack();
 }
 
 
@@ -717,8 +743,17 @@ AudioEngine::onAboutToFinish()
 void
 AudioEngine::onStateChanged( Phonon::State newState, Phonon::State oldState )
 {
-    tDebug( LOGVERBOSE ) << Q_FUNC_INFO << oldState << newState << m_expectStop;
+    tDebug( LOGVERBOSE ) << Q_FUNC_INFO << oldState << newState << m_expectStop << state();
 
+    if ( newState == Phonon::LoadingState )
+    {
+        // We don't emit this state to listeners - yet.
+        m_state = Loading;
+    }
+    if ( newState == Phonon::StoppedState )
+    {
+        m_state = Stopped;
+    }
     if ( newState == Phonon::ErrorState )
     {
         stop( UnknownError );
@@ -730,6 +765,9 @@ AudioEngine::onStateChanged( Phonon::State newState, Phonon::State oldState )
     }
     if ( newState == Phonon::PlayingState )
     {
+        if ( state() != Paused && state() != Playing )
+            emit started( m_currentTrack );
+
         setState( Playing );
     }
 
@@ -740,8 +778,14 @@ AudioEngine::onStateChanged( Phonon::State newState, Phonon::State oldState )
         {
             case Phonon::PausedState:
             {
-                qint64 duration = m_mediaObject->totalTime() > 0 ? m_mediaObject->totalTime() : m_currentTrack->duration() * 1000;
-                stopped = ( duration - 1000 < m_mediaObject->currentTime() );
+                if ( m_mediaObject && m_currentTrack )
+                {
+                    qint64 duration = m_mediaObject->totalTime() > 0 ? m_mediaObject->totalTime() : m_currentTrack->duration() * 1000;
+                    stopped = ( duration - 1000 < m_mediaObject->currentTime() );
+                }
+                else
+                    stopped = true;
+
                 if ( !stopped )
                     setState( Paused );
 
@@ -759,7 +803,7 @@ AudioEngine::onStateChanged( Phonon::State newState, Phonon::State oldState )
         if ( stopped && m_expectStop )
         {
             m_expectStop = false;
-            tDebug( LOGEXTRA ) << "Finding next track.";
+            tDebug( LOGVERBOSE ) << "Finding next track.";
             if ( canGoNext() )
                 loadNextTrack();
             else
@@ -773,10 +817,10 @@ AudioEngine::onStateChanged( Phonon::State newState, Phonon::State oldState )
 
     if ( newState == Phonon::PausedState || newState == Phonon::PlayingState || newState == Phonon::ErrorState )
     {
-        tDebug() << "Phonon state now:" << newState;
+        tDebug( LOGVERBOSE ) << "Phonon state now:" << newState;
         if ( m_stateQueue.count() )
         {
-            AudioState qState = m_stateQueue.dequeue();
+            /*/ AudioState qState = */ m_stateQueue.dequeue();
             checkStateQueue();
         }
     }
@@ -809,6 +853,25 @@ AudioEngine::timerTriggered( qint64 time )
 
 
 void
+AudioEngine::setQueue( const playlistinterface_ptr& queue )
+{
+    if ( m_queue )
+    {
+        disconnect( m_queue.data(), SIGNAL( previousTrackAvailable( bool ) ), this, SIGNAL( controlStateChanged() ) );
+        disconnect( m_queue.data(), SIGNAL( nextTrackAvailable( bool ) ), this, SIGNAL( controlStateChanged() ) );
+    }
+
+    m_queue = queue;
+
+    if ( m_queue )
+    {
+        connect( m_queue.data(), SIGNAL( previousTrackAvailable( bool ) ), SIGNAL( controlStateChanged() ) );
+        connect( m_queue.data(), SIGNAL( nextTrackAvailable( bool ) ), SIGNAL( controlStateChanged() ) );
+    }
+}
+
+
+void
 AudioEngine::setPlaylist( Tomahawk::playlistinterface_ptr playlist )
 {
     if ( m_playlist == playlist )
@@ -816,8 +879,14 @@ AudioEngine::setPlaylist( Tomahawk::playlistinterface_ptr playlist )
 
     if ( !m_playlist.isNull() )
     {
-        if ( m_playlist.data() && m_playlist.data()->retryMode() == PlaylistModes::Retry )
-            disconnect( m_playlist.data(), SIGNAL( nextTrackReady() ) );
+        if ( m_playlist.data() )
+        {
+            disconnect( m_playlist.data(), SIGNAL( previousTrackAvailable( bool ) ) );
+            disconnect( m_playlist.data(), SIGNAL( nextTrackAvailable( bool ) ) );
+            disconnect( m_playlist.data(), SIGNAL( shuffleModeChanged( bool ) ) );
+            disconnect( m_playlist.data(), SIGNAL( repeatModeChanged( Tomahawk::PlaylistModes::RepeatMode ) ) );
+        }
+
         m_playlist.data()->reset();
     }
 
@@ -831,10 +900,41 @@ AudioEngine::setPlaylist( Tomahawk::playlistinterface_ptr playlist )
     m_playlist = playlist;
     m_stopAfterTrack.clear();
 
-    if ( !m_playlist.isNull() && m_playlist.data() && m_playlist.data()->retryMode() == PlaylistModes::Retry )
-        connect( m_playlist.data(), SIGNAL( nextTrackReady() ), SLOT( onPlaylistNextTrackReady() ) );
+    if ( !m_playlist.isNull() )
+    {
+        connect( m_playlist.data(), SIGNAL( nextTrackAvailable( bool ) ), SLOT( onPlaylistNextTrackAvailable() ) );
+
+        connect( m_playlist.data(), SIGNAL( previousTrackAvailable( bool ) ), SIGNAL( controlStateChanged() ) );
+        connect( m_playlist.data(), SIGNAL( nextTrackAvailable( bool ) ), SIGNAL( controlStateChanged() ) );
+
+        connect( m_playlist.data(), SIGNAL( shuffleModeChanged( bool ) ), SIGNAL( shuffleModeChanged( bool ) ) );
+        connect( m_playlist.data(), SIGNAL( repeatModeChanged( Tomahawk::PlaylistModes::RepeatMode ) ), SIGNAL( repeatModeChanged( Tomahawk::PlaylistModes::RepeatMode ) ) );
+
+        emit shuffleModeChanged( m_playlist.data()->shuffled() );
+        emit repeatModeChanged( m_playlist.data()->repeatMode() );
+    }
 
     emit playlistChanged( playlist );
+}
+
+
+void
+AudioEngine::setRepeatMode( Tomahawk::PlaylistModes::RepeatMode mode )
+{
+    if ( !m_playlist.isNull() )
+    {
+        m_playlist.data()->setRepeatMode( mode );
+    }
+}
+
+
+void
+AudioEngine::setShuffled( bool enabled )
+{
+    if ( !m_playlist.isNull() )
+    {
+        m_playlist.data()->setShuffled( enabled );
+    }
 }
 
 
@@ -864,6 +964,14 @@ AudioEngine::setCurrentTrack( const Tomahawk::result_ptr& result )
     }
 
     m_currentTrack = result;
+
+    if ( result )
+    {
+        if ( m_playlist )
+        {
+            m_playlist->setCurrentIndex( m_playlist->indexOfResult( result ) );
+        }
+    }
 }
 
 
@@ -887,22 +995,17 @@ AudioEngine::checkStateQueue()
     if ( m_stateQueue.count() )
     {
         AudioState state = m_stateQueue.head();
-        tDebug() << "Applying state command:" << state;
+        tDebug( LOGVERBOSE ) << "Applying state command:" << state;
         switch ( state )
         {
             case Playing:
             {
-                bool paused = isPaused();
                 m_mediaObject->play();
-                if ( paused )
-                    setVolume( m_volume );
-
                 break;
             }
 
             case Paused:
             {
-                m_volume = volume();
                 m_mediaObject->pause();
                 break;
             }
@@ -912,14 +1015,14 @@ AudioEngine::checkStateQueue()
         }
     }
     else
-        tDebug() << "Queue is empty";
+        tDebug( LOGVERBOSE ) << Q_FUNC_INFO << "Queue is empty";
 }
 
 
 void
 AudioEngine::queueStateSafety()
 {
-    tDebug() << Q_FUNC_INFO;
+    tDebug( LOGVERBOSE ) << Q_FUNC_INFO;
     m_stateQueue.clear();
 }
 
@@ -930,7 +1033,7 @@ AudioEngine::queueState( AudioState state )
     if ( m_stateQueueTimer.isActive() )
         m_stateQueueTimer.stop();
 
-    tDebug() << "Enqueuing state command:" << state << m_stateQueue.count();
+    tDebug( LOGVERBOSE ) << "Enqueuing state command:" << state << m_stateQueue.count();
     m_stateQueue.enqueue( state );
 
     if ( m_stateQueue.count() == 1 )

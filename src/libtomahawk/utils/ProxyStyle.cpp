@@ -1,6 +1,7 @@
 /* === This file is part of Tomahawk Player - <http://tomahawk-player.org> ===
  *
  *   Copyright 2010-2011, Christian Muehlhaeuser <muesli@tomahawk-player.org>
+ *   Copyright 2012, Teo Mrnjavac <teo@kde.org>
  *
  *   Tomahawk is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -24,10 +25,23 @@
 #include <QWidget>
 
 #include "utils/Logger.h"
+#include "utils/TomahawkUtilsGui.h"
 
 #define ARROW_WIDTH 7
 #define ARROW_HEIGHT 7
 
+
+ProxyStyle::ProxyStyle( bool interceptPolish )
+    : m_interceptPolish( interceptPolish )
+{
+}
+
+void
+ProxyStyle::polish( QPalette& pal )
+{
+    if( !m_interceptPolish )
+        QProxyStyle::polish( pal );
+}
 
 void
 ProxyStyle::drawPrimitive( PrimitiveElement pe, const QStyleOption* opt, QPainter* p, const QWidget* w ) const
@@ -75,10 +89,30 @@ ProxyStyle::drawControl( ControlElement ce, const QStyleOption* opt, QPainter* p
         const QSplitter* splitter = qobject_cast< const QSplitter* >( w );
         if ( !splitter->sizes().contains( 0 ) )
         {
-            p->setPen( QColor( 0x8c, 0x8c, 0x8c ) );
-            p->drawLine( opt->rect.topLeft(), opt->rect.bottomRight() );
+            p->setPen( TomahawkUtils::Colors::BORDER_LINE );
+            // We must special-case this because of the AnimatedSplitterHandle which has a
+            // SizeHint of 0,0.
+            if( splitter->orientation() == Qt::Vertical )
+                p->drawLine( opt->rect.topLeft(), opt->rect.topRight() );
+            else
+                p->drawLine( opt->rect.topLeft(), opt->rect.bottomRight() );
         }
     }
     else
         QProxyStyle::drawControl( ce, opt, p, w );
+}
+
+QSize
+ProxyStyle::sizeFromContents( QStyle::ContentsType type, const QStyleOption *option, const QSize &size, const QWidget *widget ) const
+{
+    if( type == CT_Splitter )
+    {
+        const QSplitter* splitter = qobject_cast< const QSplitter* >( widget );
+        if( splitter->orientation() == Qt::Horizontal )
+            return QSize( 1, size.height() );
+        else
+            return QSize( size.width(), 1 );
+    }
+    else
+        return QProxyStyle::sizeFromContents( type, option, size, widget );
 }

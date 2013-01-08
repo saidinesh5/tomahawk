@@ -1,6 +1,7 @@
 /* === This file is part of Tomahawk Player - <http://tomahawk-player.org> ===
  *
  *   Copyright 2012, Christian Muehlhaeuser <muesli@tomahawk-player.org>
+ *   Copyright 2012, Teo Mrnjavac <teo@kde.org>
  *
  *   Tomahawk is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -19,11 +20,11 @@
 #ifndef SOCIALWIDGET_H
 #define SOCIALWIDGET_H
 
+#include "Query.h"
+
 #include <QWidget>
 #include <QAbstractItemView>
 #include <QTimer>
-
-#include "Query.h"
 
 namespace Ui
 {
@@ -33,22 +34,19 @@ namespace Ui
 class SocialWidget : public QWidget
 {
 Q_OBJECT
-Q_PROPERTY( qreal opacity READ opacity WRITE setOpacity )
 
 public:
     SocialWidget( QWidget* parent );
     ~SocialWidget();
 
-    Tomahawk::query_ptr query() const { return m_query; }
+    Tomahawk::query_ptr query() const;
     void setQuery( const Tomahawk::query_ptr& query );
 
-    qreal opacity() const { return m_opacity; }
-    void setOpacity( qreal opacity );
-
-    QPoint position() const { return m_position; }
+    QPoint position() const;
     void setPosition( QPoint position );
 
     bool shown() const;
+    void close();
 
 signals:
     void hidden();
@@ -66,9 +64,8 @@ private slots:
     void accept();
     void onChanged();
     void onShortLinkReady( const QUrl& longUrl, const QUrl& shortUrl, const QVariant& callbackObj );
-    
+
     void onGeometryUpdate();
-    void close();
 
 private:
     unsigned int charsAvailable() const;
@@ -77,7 +74,6 @@ private:
 
     Tomahawk::query_ptr m_query;
 
-    qreal m_opacity;
     QPoint m_position;
 
     QWidget* m_parent;
