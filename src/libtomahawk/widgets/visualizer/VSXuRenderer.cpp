@@ -20,6 +20,7 @@
 #include <QImage>
 
 #include <GL/glu.h>
+#include <vsx_manager.h>
 #include "VSXuRenderer.h"
 #include "VisualizerWidget.h"
 #include "utils/TomahawkUtils.h"

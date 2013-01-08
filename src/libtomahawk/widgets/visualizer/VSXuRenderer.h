@@ -25,9 +25,9 @@
 #include <QString>
 #include <QThread>
 #include <QMutex>
-#include <vsx_manager.h>
-
 #include "audio/AudioEngine.h"
+
+class vsx_manager_abs;
 
 #define SAMPLES 512
 

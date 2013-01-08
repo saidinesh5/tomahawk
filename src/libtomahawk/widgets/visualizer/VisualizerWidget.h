@@ -25,6 +25,9 @@
 #include <QResizeEvent>
 #include <QShowEvent>
 #include <QHideEvent>
+#include <QtOpenGL/QGLFormat>
+#include <phonon/audiodataoutput.h>
+
 #include "ViewPage.h"
 #include "VSXuRenderer.h"
 
@@ -44,6 +47,10 @@ public:
     QWidget* widget(){ return this; }
     //TODO: Add the activate and deactivate methods, which can be called from  ViewManager.cpp
     //when some other page is being activated, to save the CPU cycles.
+    static bool canRun(){
+      Phonon::AudioDataOutput dataout;
+      return QGLFormat::hasOpenGL() && dataout.isValid();
+    }
 
 protected:
     void resizeEvent(QResizeEvent* event);

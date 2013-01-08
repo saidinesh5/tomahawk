@@ -46,7 +46,7 @@
 #include "utils/Logger.h"
 
 #ifdef ENABLE_VISUALIZER
-#include <QtOpenGL/QGLFormat>
+#include "widgets/visualizer/VisualizerWidget.h"
 #endif
 
 using namespace Tomahawk;
@@ -316,7 +316,7 @@ SourcesModel::appendGroups()
                                                 boost::bind( &ViewManager::newReleasesWidget, ViewManager::instance() ) );
     newReleases->setSortValue( 5 );
 #ifdef ENABLE_VISUALIZER
-    if (QGLFormat::hasOpenGL()){
+    if (VisualizerWidget::canRun()){
       GenericPageItem* visualizer = new GenericPageItem( this, browse, tr( "Visualizer" ), QIcon( RESPATH "images/visualizer.png" ),
                                                 boost::bind( &ViewManager::showVisualizerPage, ViewManager::instance() ),
                                                 boost::bind( &ViewManager::visualizerWidget, ViewManager::instance() ) );
