@@ -43,7 +43,7 @@ VSXuRenderer::VSXuRenderer(VisualizerWidget* parent)
         m_soundData[1][i] = 0;
     }
     //connecting the audio paths
-    connect ( AudioEngine::instance(),SIGNAL( audioDataReady( const QMap<Phonon::AudioDataOutput::Channel, QVector<qint16> >& ) ), 
+    connect ( AudioEngine::instance(),SIGNAL( audioDataReady( QMap<Phonon::AudioDataOutput::Channel, QVector<qint16> > ) ),
 	      this, SLOT( receiveAudioData(QMap<Phonon::AudioDataOutput::Channel,QVector<qint16> >)) );
 }
 
