@@ -1,4 +1,4 @@
-# Find VSXU - JSON handling library for Qt
+# Find VSXU - Finds VSXu libraries.
 #
 # This module defines
 #  VSXU_FOUND - whether the qsjon library was found
@@ -6,43 +6,52 @@
 #  VSXU_INCLUDE_DIRS - the include path of the vsxu library
 #
 
-if (VSXU_INCLUDE_DIRS AND VSXU_LIBRARIES)
-
-  # Already in cache
-  set (VSXU_FOUND TRUE)
-
-else (VSXU_INCLUDE_DIRS AND VSXU_LIBRARIES)
-
-  if (NOT WIN32)
+if ( NOT WIN32 )
     # use pkg-config to get the values of VSXU_INCLUDE_DIRS
     # and VSXU_LIBRARY_DIRS to add as hints to the find commands.
     include (FindPkgConfig)
     pkg_check_modules (VSXU libvsxu)
-  endif (NOT WIN32)
+endif (NOT WIN32)
 
-  find_library (VSXU_LIBRARIES
+find_library (VSXU_ENGINE_LIBRARY
     NAMES
-    libvsxu_engine libvsxu_engine_graphics libvsxu_engine_audiovisual
+    libvsxu_engine
     PATHS
     ${VSXU_LIBRARY_DIRS}
     ${LIB_INSTALL_DIR}
     ${KDE4_LIB_DIR}
-  )
+)
 
-  find_path (VSXU_INCLUDE_DIRS
+find_library (VSXU_ENGINE_GRAPHICS_LIBRARY
+    NAMES
+    libvsxu_engine_graphics
+    PATHS
+    ${VSXU_LIBRARY_DIRS}
+    ${LIB_INSTALL_DIR}
+    ${KDE4_LIB_DIR}
+)
+
+find_library (VSXU_ENGINE_AUDIOVISUAL_LIBRARY
+    NAMES
+    libvsxu_engine_audiovisual
+    PATHS
+    ${VSXU_LIBRARY_DIRS}
+    ${LIB_INSTALL_DIR}
+    ${KDE4_LIB_DIR}
+)
+
+find_path (VSXU_INCLUDE_DIRS
     NAMES
     vsxu_platform.h
     PATHS
     ${VSXU_INCLUDE_DIRS}
     ${INCLUDE_INSTALL_DIR}
     ${KDE4_INCLUDE_DIR}
-  )
+)
 
-  include(FindPackageHandleStandardArgs)
-  find_package_handle_standard_args(VSXu DEFAULT_MSG VSXU_LIBRARIES VSXU_INCLUDE_DIRS)
+    
+set( VSXU_LIBRARIES ${VSXU_ENGINE_LIBRARY} ${VSXU_ENGINE_GRAPHICS_LIBRARY} ${VSXU_ENGINE_AUDIOVISUAL_LIBRARY})
 
-  if ( UNIX AND NOT APPLE )
-    set ( VSXU_LIBRARIES "${VSXU_LIBRARIES} ${VSXU_LDFLAGS}" CACHE INTERNAL "")
-  endif ()
-
-endif (VSXU_INCLUDE_DIRS AND VSXU_LIBRARIES)
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(VSXu DEFAULT_MSG VSXU_LIBRARIES VSXU_INCLUDE_DIRS)
+mark_as_advanced(VSXU_LIBRARIES VSXU_INCLUDE_DIRS)

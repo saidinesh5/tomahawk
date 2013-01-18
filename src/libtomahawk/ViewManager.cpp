@@ -49,7 +49,7 @@
 #include "widgets/infowidgets/TrackInfoWidget.h"
 #include "widgets/NewPlaylistWidget.h"
 #include "widgets/AnimatedSplitter.h"
-#ifdef ENABLE_VISUALIZER
+#ifdef WITH_VISUALIZER
 #include "widgets/visualizer/VisualizerWidget.h"
 #endif
 
@@ -80,7 +80,7 @@ ViewManager::ViewManager( QObject* parent )
     , m_whatsHotWidget( 0 )
     , m_newReleasesWidget( new NewReleasesWidget() )
     , m_recentPlaysWidget( 0 )
-#ifdef ENABLE_VISUALIZER
+#ifdef WITH_VISUALIZER
     , m_visualizerWidget( 0 )
 #endif
     , m_currentPage( 0 )
@@ -425,7 +425,7 @@ ViewManager::showRecentPlaysPage()
 
     return show( m_recentPlaysWidget );
 }
-#ifdef ENABLE_VISUALIZER
+#ifdef WITH_VISUALIZER
 ViewPage*
 ViewManager::showVisualizerPage()
 {
@@ -837,7 +837,7 @@ ViewManager::recentPlaysWidget() const
     return m_recentPlaysWidget;
 }
 
-#ifdef ENABLE_VISUALIZER
+#ifdef WITH_VISUALIZER
 Tomahawk::ViewPage*
 ViewManager::visualizerWidget() const
 {

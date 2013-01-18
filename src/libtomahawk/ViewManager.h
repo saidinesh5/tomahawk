@@ -55,7 +55,7 @@ class NewReleasesWidget;
 class WelcomeWidget;
 class WhatsHotWidget;
 class QPushButton;
-#ifdef ENABLE_VISUALIZER
+#ifdef WITH_VISUALIZER
 class VisualizerWidget;
 #endif
 namespace Tomahawk
@@ -93,7 +93,7 @@ public:
     Tomahawk::ViewPage* whatsHotWidget() const;
     Tomahawk::ViewPage* newReleasesWidget() const;
     Tomahawk::ViewPage* recentPlaysWidget() const;
-#ifdef ENABLE_VISUALIZER
+#ifdef WITH_VISUALIZER
     Tomahawk::ViewPage* visualizerWidget() const;
 #endif
     TreeView* superCollectionView() const;
@@ -135,7 +135,7 @@ public slots:
     Tomahawk::ViewPage* showWhatsHotPage();
     Tomahawk::ViewPage* showNewReleasesPage();
     Tomahawk::ViewPage* showRecentPlaysPage();
-#ifdef ENABLE_VISUALIZER
+#ifdef WITH_VISUALIZER
     Tomahawk::ViewPage* showVisualizerPage();
 #endif
     void showCurrentTrack();
@@ -193,7 +193,7 @@ private:
     WhatsHotWidget* m_whatsHotWidget;
     NewReleasesWidget* m_newReleasesWidget;
     Tomahawk::ViewPage* m_recentPlaysWidget;
-#ifdef ENABLE_VISUALIZER
+#ifdef WITH_VISUALIZER
     Tomahawk::ViewPage* m_visualizerWidget;
 #endif
 

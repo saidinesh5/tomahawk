@@ -45,7 +45,7 @@
 #include "utils/ImageRegistry.h"
 #include "utils/Logger.h"
 
-#ifdef ENABLE_VISUALIZER
+#ifdef WITH_VISUALIZER
 #include "widgets/visualizer/VisualizerWidget.h"
 #endif
 
@@ -315,12 +315,17 @@ SourcesModel::appendGroups()
                                                 boost::bind( &ViewManager::showNewReleasesPage, ViewManager::instance() ),
                                                 boost::bind( &ViewManager::newReleasesWidget, ViewManager::instance() ) );
     newReleases->setSortValue( 5 );
-#ifdef ENABLE_VISUALIZER
-    if (VisualizerWidget::canRun()){
-      GenericPageItem* visualizer = new GenericPageItem( this, browse, tr( "Visualizer" ), QIcon( RESPATH "images/visualizer.png" ),
+#ifdef WITH_VISUALIZER
+    if ( VisualizerWidget::canRun() )
+    {
+        GenericPageItem* visualizer = new GenericPageItem( this, browse, tr( "Visualizer" ), QIcon( RESPATH "images/visualizer.png" ),
                                                 boost::bind( &ViewManager::showVisualizerPage, ViewManager::instance() ),
                                                 boost::bind( &ViewManager::visualizerWidget, ViewManager::instance() ) );
-      visualizer->setSortValue( 7 );
+        visualizer->setSortValue( 7 );
+    }
+    else
+    {
+        tLog() << "The VSXu Visualizer Cannot Run on this machine";
     }
 #endif
     m_collectionsGroup = new GroupItem( this, m_rootItem, tr( "Friends" ), 4 );
