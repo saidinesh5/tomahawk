@@ -20,9 +20,9 @@
 
 #include "VisualizerWidget.h"
 
-VisualizerWidget::VisualizerWidget(QWidget* parent):
-  QGLWidget(parent),
-  m_renderer(this)
+VisualizerWidget::VisualizerWidget(QWidget* parent)
+    : QGLWidget(parent)
+    , m_renderer(this)
 {
     setAutoBufferSwap(false);
     m_renderer.start();

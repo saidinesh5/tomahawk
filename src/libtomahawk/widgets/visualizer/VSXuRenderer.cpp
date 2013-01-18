@@ -25,19 +25,20 @@
 #include "VisualizerWidget.h"
 #include "utils/TomahawkUtils.h"
 
-VSXuRenderer::VSXuRenderer(VisualizerWidget* parent):
-  m_manager(0),
-  m_widget(parent),
-  m_isRunning(true),
-  m_isActive(true),
-  m_doResize(true),
-  m_doAudioUpdate(true),
-  m_frontbuffer(false),
-  m_width(640),
-  m_height(480)
+VSXuRenderer::VSXuRenderer(VisualizerWidget* parent)
+    : m_manager(0)
+    , m_widget(parent)
+    , m_isRunning(true)
+    , m_isActive(true)
+    , m_doResize(true)
+    , m_doAudioUpdate(true)
+    , m_frontbuffer(false)
+    , m_width(640)
+    , m_height(480)
 {
     //initializing the sound data buffers
-    for(int i = 0; i < SAMPLES; i++){
+    for(int i = 0; i < SAMPLES; i++)
+    {
         m_soundData[0][i] = 0;
         m_soundData[1][i] = 0;
     }
@@ -50,75 +51,83 @@ VSXuRenderer::VSXuRenderer(VisualizerWidget* parent):
 void VSXuRenderer::resize(int w, int h)
 {
     m_mutex.lock();
-      m_width = w;
-      m_height = h;
-      m_doResize = true;
+    m_width = w;
+    m_height = h;
+    m_doResize = true;
     m_mutex.unlock();
 }
+
 
 void VSXuRenderer::activate()
 {
     m_mutex.lock();
-      m_isActive = true;
+    m_isActive = true;
     m_mutex.unlock();
 }
+
 
 void VSXuRenderer::deactivate()
 {
     m_mutex.lock();
-      m_isActive = false;
+    m_isActive = false;
     m_mutex.unlock();
 }
 
-void VSXuRenderer::stop()
+
+void
+VSXuRenderer::stop()
 {
     m_mutex.lock();
-      m_isRunning = false;
+    m_isRunning = false;
     m_mutex.unlock();
 }
 
 
-void VSXuRenderer::receiveAudioData(const QMap< Phonon::AudioDataOutput::Channel, QVector< qint16 > >& data)
+void
+VSXuRenderer::receiveAudioData(const QMap< Phonon::AudioDataOutput::Channel, QVector< qint16 > >& data)
 {
-    if(data.size() <= 0 )
+    if ( data.size() <= 0 )
         return;
 
     //decide which buffer to use
     m_mutex.lock();
-      int buf = (int)m_frontbuffer;
+    int buf = (int)m_frontbuffer;
     m_mutex.unlock();
 
     //Making a local copy of the sound data for updating the sound data
-    for (int i = 0; i < SAMPLES; i++){
+    for (int i = 0; i < SAMPLES; i++)
+    {
         m_soundData[buf][i] = 0;
         if( data.contains( Phonon::AudioDataOutput::LeftChannel ) )
             m_soundData[buf][i] += (float)(data[Phonon::AudioDataOutput::LeftChannel][i])/65536.0;
-	if ( data.contains(Phonon::AudioDataOutput::LeftSurroundChannel) )
+        if ( data.contains(Phonon::AudioDataOutput::LeftSurroundChannel) )
+            m_soundData[buf][i] += (float)(data[Phonon::AudioDataOutput::LeftSurroundChannel][i])/65536.0;
 
-	    m_soundData[buf][i] += (float)(data[Phonon::AudioDataOutput::LeftSurroundChannel][i])/65536.0;
+        if ( data.contains(Phonon::AudioDataOutput::RightChannel) )
+            m_soundData[buf][i] += (float)(data[Phonon::AudioDataOutput::RightChannel][i])/65536.0;
+        if ( data.contains(Phonon::AudioDataOutput::RightSurroundChannel) )
+            m_soundData[buf][i] += (float)(data[Phonon::AudioDataOutput::RightSurroundChannel][i])/65536.0;
 
-	if ( data.contains(Phonon::AudioDataOutput::RightChannel) )
-	    m_soundData[buf][i] += (float)(data[Phonon::AudioDataOutput::RightChannel][i])/65536.0;
-	if ( data.contains(Phonon::AudioDataOutput::RightSurroundChannel) )
-	    m_soundData[buf][i] += (float)(data[Phonon::AudioDataOutput::RightSurroundChannel][i])/65536.0;
+        if ( data.contains(Phonon::AudioDataOutput::CenterChannel) )
+            m_soundData[buf][i] += (float)(data[Phonon::AudioDataOutput::CenterChannel][i])/65536.0;
+        if ( data.contains(Phonon::AudioDataOutput::SubwooferChannel) )
+            m_soundData[buf][i] += (float)(data[Phonon::AudioDataOutput::SubwooferChannel][i])/65536.0;
 
-	if ( data.contains(Phonon::AudioDataOutput::CenterChannel) )
-	    m_soundData[buf][i] += (float)(data[Phonon::AudioDataOutput::CenterChannel][i])/65536.0;
-	if ( data.contains(Phonon::AudioDataOutput::SubwooferChannel) )
-	    m_soundData[buf][i] += (float)(data[Phonon::AudioDataOutput::SubwooferChannel][i])/65536.0;
-
-	m_soundData[buf][i] *= 3.5/(float)data.size();
+        m_soundData[buf][i] *= 3.5/(float)data.size();
     }
+
     m_mutex.lock();
-      m_doAudioUpdate = true;
+    m_doAudioUpdate = true;
     m_mutex.unlock();
 
 }
 
-void VSXuRenderer::drawSplashScreen()
+
+void
+VSXuRenderer::drawSplashScreen()
 {
     QImage splash = QGLWidget::convertToGLFormat(QImage(RESPATH "images/visualizer-splash.png"));
-    
+
     int edge = m_width > m_height? m_height : m_width;
 
     glEnable(GL_TEXTURE_2D);
@@ -159,7 +168,8 @@ void VSXuRenderer::drawSplashScreen()
 }
 
 
-void VSXuRenderer::run()
+void
+VSXuRenderer::run()
 {
     //HACK: Waiting till the QGLWidget has been actually created
     msleep(200);
@@ -181,59 +191,64 @@ void VSXuRenderer::run()
     bool isRunning = true,isActive = true;
     bool doResize = true, doAudioUpdate = true;
     bool frontbuffer = false;
-    while (isRunning){
+    while ( isRunning )
+    {
+        m_mutex.lock();
+        //Reading the control variables
+        isRunning = m_isRunning;
+        isActive = m_isActive;
+        doAudioUpdate = m_doAudioUpdate;
+        doResize = m_doResize;
+        frontbuffer = m_frontbuffer;
 
-	m_mutex.lock();
-	  //Reading the control variables
-	  isRunning = m_isRunning;
-	  isActive = m_isActive;
-	  doAudioUpdate = m_doAudioUpdate;
-	  doResize = m_doResize;
-	  frontbuffer = m_frontbuffer;
+        //updating the control variables
+        if ( m_doAudioUpdate )
+        {
+            m_frontbuffer = !m_frontbuffer;
+            m_doAudioUpdate = false;
+        }
+        if ( m_doResize )
+            m_doResize = false;
 
-	  //updating the control variables
-	  if(m_doAudioUpdate){
-	      m_frontbuffer = !m_frontbuffer;
-	      m_doAudioUpdate = false;
-	  }
-	  if(m_doResize)
-	      m_doResize = false;
-	m_mutex.unlock();
+        m_mutex.unlock();
 
-	if(!isActive){
-	    //Saving CPU cycles when not active
-	    //Just to not flood the system with too many rendering calls.
-	    msleep(10);
-	    continue;
-	}
+        if ( !isActive )
+        {
+            //do not flood the system with too many rendering calls.
+            msleep(10);
+            continue;
+        }
 
-	m_widget->makeCurrent();
-	if (doResize){
-	    glViewport(0, 0, m_width, m_height);
-	    glMatrixMode(GL_PROJECTION);
-	    glLoadIdentity();
-	    // set origin to bottom left corner
-	    gluOrtho2D(0, m_width, 0, m_height);
-	    doResize = false;
-	}
-	if (doAudioUpdate){
-	    m_manager->set_sound_wave( m_soundData[(int)frontbuffer] );
-	    doAudioUpdate = false;
-	}
+        m_widget->makeCurrent();
+        if ( doResize )
+        {
+            glViewport(0, 0, m_width, m_height);
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            // set origin to bottom left corner
+            gluOrtho2D(0, m_width, 0, m_height);
+            doResize = false;
+        }
+        if ( doAudioUpdate )
+        {
+            m_manager->set_sound_wave( m_soundData[(int)frontbuffer] );
+            doAudioUpdate = false;
+        }
 
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	if(m_manager)
-	    m_manager->render();
-	m_widget->swapBuffers();
+        if ( m_manager )
+            m_manager->render();
+        m_widget->swapBuffers();
     }
 }
+
 
 VSXuRenderer::~VSXuRenderer()
 {
     stop();
-    if(m_manager)
+    if ( m_manager )
         manager_destroy(m_manager);
 }

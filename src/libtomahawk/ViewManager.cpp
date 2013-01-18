@@ -426,7 +426,8 @@ ViewManager::showRecentPlaysPage()
     return show( m_recentPlaysWidget );
 }
 #ifdef ENABLE_VISUALIZER
-ViewPage* ViewManager::showVisualizerPage()
+ViewPage*
+ViewManager::showVisualizerPage()
 {
     if(!m_visualizerWidget)
         m_visualizerWidget = new VisualizerWidget(m_widget);
@@ -592,11 +593,11 @@ ViewManager::setPage( ViewPage* page, bool trackHistory )
             connect( obj, SIGNAL( destroyed( QWidget* ) ), SLOT( onWidgetDestroyed( QWidget* ) ), Qt::UniqueConnection );
     }
 
-    QWidget *previousPage = m_stack->currentWidget();
+    QWidget* previousPage = m_stack->currentWidget();
     m_stack->setCurrentWidget( page->widget() );
     //This should save the CPU cycles, especially with pages like the visualizer
-    if(previousPage && previousPage != page->widget())
-	previousPage->hide();
+    if ( previousPage && previousPage != page->widget() )
+        previousPage->hide();
 
     updateView();
 }

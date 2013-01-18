@@ -36,8 +36,8 @@ class VSXuRenderer: public QThread
 {
     Q_OBJECT
 
-    vsx_manager_abs *m_manager;
-    VisualizerWidget *m_widget;
+    vsx_manager_abs* m_manager;
+    VisualizerWidget* m_widget;
 
     //The Control Variables
     bool m_isRunning, m_isActive;
